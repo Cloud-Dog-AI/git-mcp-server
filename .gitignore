@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+ui/dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Private (credentials, secrets)
+private/
+
+# Data (workspace, audit, cache)
+data/
+.tmp-tests/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment files (real ones)
+.env
+docker-env.local
+docker-build.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Runtime output
+logs/
+working/pytest-tmp/
+working/workspaces/
+working/at/
+working/it/
+
+# Generated test repositories
+working/docker-data/
+working/pytest-tmp-*/
+.run/
+.pids/
+working/
+*.log
+env-*-secrets
+env-*-resolved
+archive/
+database/
+*.pid
+storage/
+node_modules
+*.pyc
+.terraform
+*.tfstate
+working/w28a-*-screenshots/
+node_modules/

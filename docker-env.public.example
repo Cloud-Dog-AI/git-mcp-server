@@ -1,0 +1,50 @@
+# git-mcp-server — Docker Environment (PS-97 v1.1 §1.1.4 PUBLIC variant)
+#
+# PUBLIC variant — for external / GitHub-boundary deployments.
+# Uses *.example.com placeholders with <your-token-here> tokens.
+# Internal variant at docker-env.internal.example (preserves internal FQDNs for dev).
+#
+# Copy to .env and fill in real endpoints + secrets before running.
+
+# ── Server Ports ─────────────────────────────────────────────────
+CLOUD_DOG__GIT__API_SERVER__PORT=8585
+CLOUD_DOG__GIT__API_SERVER__HOST=0.0.0.0
+CLOUD_DOG__GIT__MCP_SERVER__PORT=8586
+CLOUD_DOG__GIT__MCP_SERVER__HOST=0.0.0.0
+CLOUD_DOG__SERVER__PORT=8585
+CLOUD_DOG__SERVER__HOST=0.0.0.0
+CLOUD_DOG__SERVER__MCP__PORT=8586
+
+# ── Authentication ───────────────────────────────────────────────
+# API key for tool execution (supply from your secret store)
+CLOUD_DOG__GIT__API_KEY=<your-api-key-here>
+JWT_ISSUER=<your-jwt-issuer>
+JWT_AUDIENCE=<your-jwt-audience>
+JWT_JWKS_URL=https://git.example.com
+GIT_MCP_SEED_KEY_FILE=/app/data/seed_api_key.txt
+
+# ── Git Configuration ────────────────────────────────────────────
+CLOUD_DOG__GIT__WORKSPACE_ROOT=/app/data/workspaces
+CLOUD_DOG__GIT__DEFAULT_REMOTE=https://git.example.com
+
+# ── Vault (optional — for credential resolution) ────────────────
+VAULT_ADDR=https://vault.example.com
+VAULT_TOKEN=<your-vault-token-here>
+CLOUD_DOG__VAULT__MOUNT_POINT=<your-vault-mount-point>
+CLOUD_DOG__VAULT__CONFIG_PATH=<your-vault-config-path>
+
+# ── Corporate Proxy (optional) ──────────────────────────────────
+HTTP_PROXY=
+HTTPS_PROXY=
+NO_PROXY=127.0.0.1,localhost,.example.com
+
+# ── Logging ──────────────────────────────────────────────────────
+CLOUD_DOG__GIT__LOG__LEVEL=INFO
+CLOUD_DOG__GIT__AUDIT__ENABLED=true
+
+# ── TLS (optional) ──────────────────────────────────────────────
+# Single combined bundle:
+# CLOUD_DOG_TLS_CA_BUNDLE=/app/certs/ca-bundle.crt
+# Or provide both chains separately:
+# CLOUD_DOG_TLS_CORPORATE_CA=/app/certs/corporate-internal.crt
+# CLOUD_DOG_TLS_ACME_CA=/app/certs/acme-chain.crt

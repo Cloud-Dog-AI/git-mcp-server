@@ -1,0 +1,48 @@
+# Copyright 2026 Cloud-Dog, Viewdeck Engineering Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+import os
+
+import httpx
+
+from tests.helpers import a2a_url
+
+
+def test_a2a_health_auth_contract(integration_server: dict[str, str]) -> None:
+    """Requirements: FR-04."""
+    base_url = integration_server["base_url"]
+    configured_key = os.environ.get("TEST_A2A_API_KEY", "").strip()
+    assert configured_key, "TEST_A2A_API_KEY must be configured"
+
+    no_auth = httpx.get(a2a_url(base_url, "/health"), timeout=10.0)
+    assert no_auth.status_code == 401
+
+    wrong_key = httpx.get(
+        a2a_url(base_url, "/health"),
+        headers={"Authorization": "Bearer wrong-key"},
+        timeout=10.0,
+    )
+    assert wrong_key.status_code == 401
+
+    valid_auth = httpx.get(
+        a2a_url(base_url, "/health"),
+        headers={"Authorization": f"Bearer {configured_key}"},
+        timeout=10.0,
+    )
+    assert valid_auth.status_code == 200
+    payload = valid_auth.json()
+    assert payload["ok"] is True
+    assert payload["result"]["interface"] == "a2a"

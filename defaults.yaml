@@ -1,0 +1,176 @@
+# git-mcp-server — defaults.yaml
+# All values configurable via cloud_dog_config precedence:
+# os.environ → .env → config.yaml → defaults.yaml → Vault
+
+api_server:
+  host: "0.0.0.0"
+  port: 8078
+  client_host: ""
+  request_timeout_seconds: 30.0
+  base_path: "/api/v1"  # PS-92 canonical API base path; legacy /app/v1 preserved as hardcoded compat (include_in_schema=False; NOT configurable per W28A-970c-V2).
+
+web_server:
+  host: "0.0.0.0"
+  port: 8079
+
+mcp_server:
+  host: "0.0.0.0"
+  port: 8084
+  transport: "streamable-http"
+  base_path: "/git-mcp"  # PS-92 canonical MCP proxy base path.
+
+a2a_server:
+  host: "0.0.0.0"
+  port: 8085
+  base_path: "/a2a"  # PS-92 canonical A2A base path.
+
+runtime:
+  mode: "local-server"       # local-server | local-docker | remote-runtime
+  seed_key_file: "${GIT_MCP_SEED_KEY_FILE || ''}"
+  a2a_test_api_key: ""
+  server_id: "${HOSTNAME:git-mcp-local}"
+
+git:
+  api_key: ""
+
+jobs:
+  backend: "sql"
+  queue_name: "git-mcp"
+  run_timeout_seconds: 300.0
+  payload_max_bytes: 16384
+  claim_timeout_seconds: 120
+  max_retries: 3
+  dead_letter_queue: "git_mcp_dead_letter"
+
+web:
+  ui_dist_dir: "./ui/dist"
+  default_profile: "remote_cloud_dog"
+  environment: "${CLOUD_DOG_ENVIRONMENT:dev}"
+  session_timeout_minutes: "${CLOUD_DOG_SESSION_TIMEOUT_MINUTES:30}"
+
+web_login:
+  username: "${CLOUD_DOG_WEB_LOGIN_USERNAME:admin}"
+  password: "${CLOUD_DOG_WEB_LOGIN_PASSWORD:''}"
+
+auth:
+  mode: "api_key"            # api_key | jwt | api_key+jwt
+  jwt:
+    issuer: ""
+    audience: ""
+    public_keys_url: ""
+    secret: ""
+  enterprise:
+    provider: "keycloak"     # keycloak | ldap | saml
+    keycloak_base_url: ""
+    keycloak_realm: ""
+    keycloak_client_id: ""
+    keycloak_client_secret: ""
+
+storage:
+  db:
+    url: "sqlite:///data/git_mcp.db"
+  audit:
+    path: "./data/audit/audit.jsonl"
+  events:
+    path: "./data/events/a2a_config.jsonl"
+  gitlab:
+    url: ""
+    developer_token: ""
+    maintainer_token: ""
+
+workspace:
+  base_dir: "./data/workspaces"
+  default_mode: "ephemeral"  # ephemeral | persistent
+  default_ttl_seconds: 3600
+  cleanup_interval_seconds: 300
+
+profiles:
+  local_test:
+    repo:
+      source: "/opt/iac/local-test-repo"
+      default_branch: "main"
+      remotes: {}
+    workspace:
+      mode: "ephemeral"
+      ttl_seconds: 3600
+    policy:
+      protected_branches: ["main", "release/*"]
+      ff_only_targets: ["main"]
+      force_push: "admin_only"
+      file_scope:
+        deny_globs: ["**/.git/**"]
+        allowed_types: ["*"]
+      validation:
+        json: "strict"
+        yaml: "warn"
+        xml: "warn"
+        html: "ignore"
+        markdown: "ignore"
+    auth:
+      credential_mode: "session"
+    recovery:
+      mode: "stash"
+
+  remote_cloud_dog:
+    repo:
+      source: "https://example.invalid/authorised-remote-required.git"
+      default_branch: "main"
+      remotes:
+        origin: "https://example.invalid/authorised-remote-required.git"
+    workspace:
+      mode: "ephemeral"
+      ttl_seconds: 900
+    policy:
+      protected_branches: ["main"]
+      ff_only_targets: ["main"]
+      force_push: "never"
+      file_scope:
+        deny_globs: ["**/.git/**"]
+        allowed_types: ["*"]
+      validation:
+        json: "strict"
+        yaml: "warn"
+        xml: "warn"
+        html: "ignore"
+        markdown: "ignore"
+    auth:
+      credential_mode: "session"
+    recovery:
+      mode: "stash"
+
+rbac:
+  enabled: true
+  default_deny: true
+  roles:
+    admin: ["*"]
+    maintainer: ["repo_*", "git_*", "file_*", "dir_*", "admin_profile_read", "admin_rbac_read"]
+    writer: ["repo_*", "git_*", "file_*", "dir_*"]
+    reader: ["repo_open", "repo_close", "git_status", "git_log", "git_diff", "git_branch_list", "git_tag_list", "file_read", "file_download", "dir_list", "search_*"]
+
+log:
+  level: "INFO"
+  format: "json"
+  log_folder: "./logs"
+  service_instance: "${HOSTNAME:git-mcp-local}"
+  environment: "${CLOUD_DOG_ENVIRONMENT:dev}"
+  api_server_log: "./logs/api_server.log"
+  web_server_log: "./logs/web_server.log"
+  mcp_server_log: "./logs/mcp_server.log"
+  a2a_server_log: "./logs/a2a_server.log"
+  audit_log: "logs/audit.log.jsonl"
+  retention:
+    hot_days: 14
+    cold_days: 60
+    archive_format: "gz"
+  integrity:
+    enabled: true
+    interval_seconds: 300
+    log_file: "logs/audit-integrity.log"
+    hash_algorithm: "sha256"
+  rotation:
+    mode: "size"
+    max_bytes: 104857600
+    backup_count: 10
+    when: "midnight"
+    interval: 1
+    compress: true
