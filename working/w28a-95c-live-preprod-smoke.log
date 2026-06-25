@@ -1,0 +1,36 @@
+== https://gitmcpserver0.cloud-dog.net/health ==
+HTTP/1.1 200 OK
+Content-Length: 96
+Content-Type: application/json
+Date: Sat, 09 May 2026 07:14:16 GMT
+Server: uvicorn
+X-Api-Version: v1
+X-Request-Id: 6dfd786596ca48fa83837bbac75346f8
+X-Response-Time-Ms: 2.46
+== https://gitmcpserver0.cloud-dog.net/api/v1/health ==
+HTTP/1.1 200 OK
+Content-Length: 186
+Content-Type: application/json
+Date: Sat, 09 May 2026 07:14:16 GMT
+Server: uvicorn
+X-Api-Version: v1
+X-Request-Id: b65b35b0938d43c6882bafe763d89978
+X-Response-Time-Ms: 2.97
+== https://gitmcpserver0.cloud-dog.net/mcp/health ==
+HTTP/1.1 200 OK
+Content-Length: 96
+Content-Type: application/json
+Date: Sat, 09 May 2026 07:14:16 GMT
+Server: uvicorn
+X-Api-Version: v1
+X-Request-Id: e2d0f97e8fc54e6d95306d2285c95aa4
+X-Response-Time-Ms: 2.65
+== https://gitmcpserver0.cloud-dog.net/a2a/health ==
+HTTP/1.1 200 OK
+Content-Length: 92
+Content-Type: application/json
+Date: Sat, 09 May 2026 07:14:16 GMT
+Server: uvicorn
+X-Api-Version: v1
+X-Request-Id: a32badcb520f41a38006671831720ec0
+X-Response-Time-Ms: 6.84

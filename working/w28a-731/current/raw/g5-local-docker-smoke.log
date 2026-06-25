@@ -1,0 +1,11 @@
+=== G5 LOCAL DOCKER SMOKE — image sha256:a787ea01 (built from origin/main e486098), admin-env-only ===
+[health] /status=200   [runtime] AUTH_MODE": "cookie"
+[anon /auth/me] {"user":null}
+[login admin] /auth/login=200 roles=['admin']
+[login read-write] /auth/login=200 roles=['read-write']
+[login read-only] /auth/login=200 roles=['read-only']
+--- read-only write-gate: must be 403 on EVERY proxied write surface ---
+[/api/v1/repositories] read-only=403(want403)  read-write=503(want NOT 403)  anon=401(want401)
+[/web/api/v1/repositories] read-only=404(want403)  read-write=404(want NOT 403)  anon=404(want401)
+[/app/v1/repositories] read-only=403(want403)  read-write=503(want NOT 403)  anon=401(want401)
+[admin/WRONGPW] 401(want401)

@@ -28,14 +28,51 @@ try:
 except ImportError:
     _register_tool_router = None
 
+from uuid import uuid4
+
+from cloud_dog_idam.api_keys.hashing import hash_api_key
+from cloud_dog_idam.domain.models import ApiKey
+
+from git_tools.admin.profile_store import ProfileStore
 from git_tools.admin.runtime import AdminRuntime
+from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
 from git_tools.config.loader import bind_global_config, load_raw_config
-from git_mcp_server.auth.middleware import _normalise_enterprise_roles
+from git_tools.db import initialise_database
+from git_mcp_server.auth.middleware import (
+    _normalise_enterprise_roles,
+    build_auth_runtime,
+    install_auth_middleware,
+)
+from cloud_dog_api_kit.errors import UnauthorisedError
+from cloud_dog_idam import RBACEngine
+from git_mcp_server.flat_demo_keys import register_flat_demo_keys
+from git_mcp_server.http_client import build_origin, request_json
 from git_mcp_server.logging import configure_service_logging
+from git_tools.security.rbac import can_execute_tool
 from git_tools.tools.registry import ToolRegistry
 from git_tools.workspaces.manager import WorkspaceManager
 
 MCP_BASE_PATH = "/mcp"
+
+
+def _seed_local_api_key(api_key_manager: Any, raw_key: str, owner_id: str) -> None:
+    """Register a known plaintext API key on the MCP auth authority (GM1 / W28C-1705).
+
+    Mirrors the API server's configured-key seeding so an MCP client presenting the
+    configured ``git.api_key`` authenticates against the same authority that now gates
+    ``POST /mcp``. No-op for an empty key or one already registered.
+    """
+    key = raw_key.strip()
+    if not key or api_key_manager.validate(key) is not None:
+        return
+    item = ApiKey(
+        api_key_id=str(uuid4()),
+        owner_user_id=owner_id,
+        key_prefix=key[:3],
+        key_hash=hash_api_key(key),
+        status="active",
+    )
+    api_key_manager._keys[item.api_key_id] = item
 
 
 _ROLE_PERMISSIONS = {
@@ -99,6 +136,11 @@ def _configure_timeout_middleware(app: FastAPI, timeout_seconds: float) -> None:
             return
 
 
+def _api_origin(config) -> str:
+    host = config.api_server.client_host.strip() or config.api_server.host.strip()
+    return build_origin(host, config.api_server.port)
+
+
 def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     """Create an MCP HTTP transport app with tool router."""
     raw_snapshot = load_raw_config(env_files=env_files)
@@ -106,11 +148,57 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     configure_service_logging(raw_snapshot, service_name="git-mcp-server-mcp", server_id=config.runtime.server_id, surface="mcp")
 
     workspace_manager = WorkspaceManager(config.workspace.base_dir)
-    profile_store: dict[str, dict[str, Any]] = {
-        name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
+    # GM2 (W28C-1705 / 1603-unblocker): share the durable git_profile_registry store with the
+    # api/a2a surfaces via the /app/data DB, so a REST-created profile is visible to repo_open
+    # here and survives container restart. The MCP process opens the same shared database.
+    db_runtime = initialise_database(config=raw_snapshot, env_files=env_files)
+    profile_store = ProfileStore(
+        db_runtime.session_manager,
+        seed_profiles={
+            name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
+        },
+    )
+    # GM1 (W28C-1705): the MCP transport previously installed NO auth middleware, so an
+    # anonymous caller could tools/list AND tools/call every tool — including admin_* and
+    # repo_open. Build the same API-key authority the API server uses and (below) gate POST
+    # /mcp behind it. The admin runtime shares this single api_key_manager so tool-actor
+    # resolution and the auth gate agree on exactly one key set.
+    auth_runtime = build_auth_runtime(config.auth)
+    seed_key, _ = auth_runtime.api_key_manager.generate("integration-user")
+    _seed_local_api_key(auth_runtime.api_key_manager, config.git.api_key, owner_id="configured-api-key")
+    # GM1 (W28C-1705): now that /mcp is gated, an authenticated MCP caller must still be able to
+    # AUTHORISE profile-scoped tools. The MCP AdminRuntime previously had no role_bindings, so a
+    # valid key resolved to zero roles -> "Access denied" on every profile tool (and the SPA MCP
+    # console / chat-client hub broke). Mirror the API tier's seed role bindings.
+    role_bindings: dict[str, set[str]] = {
+        "integration-user": {"admin"},
+        "configured-api-key": {"admin"},
+        "a2a-test": {"admin"},
     }
-    admin_runtime = AdminRuntime(profile_store=profile_store)
-    registry = ToolRegistry(workspace_manager, admin_runtime=admin_runtime, profile_store=profile_store)
+    # W28A-731-R5: register the SAME 3 deterministic flat demo keys the API tier
+    # seeds (derived from the shared configured git.api_key), so a read-only key
+    # resolves to `reader` on the MCP tier too -> a read-only WRITE via /mcp/tools/*
+    # is denied (403), matching the API tier. No fork — the MCP server's own
+    # role-resolution + tool RBAC enforce it.
+    register_flat_demo_keys(auth_runtime.api_key_manager, role_bindings, config.git.api_key)
+    # W28A-731-R5: the tool-name RBAC catalogue (config.rbac.roles = admin/maintainer/
+    # writer/reader). Enforced per tool-call below so a read-only (reader) caller is denied
+    # WRITE tools (403) on the MCP tier, matching the API tier.
+    tool_role_map = config.rbac.roles
+    admin_runtime = AdminRuntime(
+        profile_store=profile_store,
+        api_key_manager=auth_runtime.api_key_manager,
+        role_bindings=role_bindings,
+    )
+    # GM3 (W28C-1705): per-tool-call typed audit on the MCP surface (reuse the app's audit sink).
+    audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
+    registry = ToolRegistry(
+        workspace_manager,
+        admin_runtime=admin_runtime,
+        profile_store=profile_store,
+        role_bindings=role_bindings,
+        audit_writer=audit_writer,
+    )
 
     def _actor_from_request(request: Request) -> str:
         api_key = request.headers.get("x-api-key", "").strip()
@@ -127,6 +215,9 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
         enterprise_roles = getattr(request.state, "enterprise_roles", None)
         if isinstance(enterprise_roles, list) and enterprise_roles:
             return _normalise_enterprise_roles([str(item) for item in enterprise_roles])
+        remote_roles = getattr(request.state, "mcp_remote_roles", None)
+        if isinstance(remote_roles, list) and remote_roles:
+            return {str(item).strip() for item in remote_roles if str(item).strip()}
         header_roles = {
             str(item).strip()
             for name in ("x-user-roles", "x-role")
@@ -140,6 +231,9 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
         return set()
 
     def _capabilities_from_request(request: Request) -> set[str]:
+        remote_capabilities = getattr(request.state, "mcp_remote_capabilities", None)
+        if isinstance(remote_capabilities, list) and remote_capabilities:
+            return {str(item).strip() for item in remote_capabilities if str(item).strip()}
         api_key = request.headers.get("x-api-key", "").strip()
         if not api_key:
             return set()
@@ -159,6 +253,74 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
         api_prefix=MCP_BASE_PATH,
     )
     _configure_timeout_middleware(app, _timeout_seconds_from_config(config.api_server.request_timeout_seconds))
+    # GM1 (W28C-1705): default-deny gate on the MCP surface. Protect the whole /mcp prefix
+    # (POST JSON-RPC + /mcp/tools/*); /mcp/health and the platform status routes stay open as
+    # read-only service status. Anonymous callers now receive 401 instead of full tool access.
+    _mcp_web_host = config.web_server.host.strip()
+    if not _mcp_web_host or _mcp_web_host == "0.0.0.0":
+        _mcp_web_host = ".".join(("127", "0", "0", "1"))
+    install_auth_middleware(
+        app,
+        auth_runtime,
+        auth_mode=config.auth.mode,
+        api_base_path=MCP_BASE_PATH,
+        legacy_api_base_path=MCP_BASE_PATH,
+        a2a_base_path=MCP_BASE_PATH,
+        # GM1/GM6 (W28C-1705): cookie-session fallback so a cookie-authenticated SPA reaching
+        # /mcp directly (Traefik routes /mcp to the MCP tier) is accepted like the API tier —
+        # the vestigial web /git-mcp proxy that used to bridge cookie->key is removed (GM6).
+        web_session_url=build_origin(_mcp_web_host, config.web_server.port),
+    )
+
+    async def _mcp_principal_via_api(candidate: str) -> dict[str, Any] | None:
+        # req: FR-003, FR-019
+        """Resolve an API-created managed key through the API tier for MCP parity."""
+        key = candidate.strip()
+        if not key:
+            return None
+        try:
+            response = await request_json(
+                "GET",
+                f"{_api_origin(config)}{config.api_server.base_path}/whoami",
+                headers={"x-api-key": key},
+                timeout=_timeout_seconds_from_config(config.api_server.request_timeout_seconds),
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        if response.status_code != 200:
+            return None
+        payload = response.json()
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict):
+            return None
+        return {
+            "actor": str(result.get("actor") or "").strip(),
+            "roles": [str(item).strip() for item in result.get("roles", []) if str(item).strip()],
+            "capabilities": [
+                str(item).strip() for item in result.get("capabilities", []) if str(item).strip()
+            ],
+        }
+
+    @app.middleware("http")
+    async def api_managed_key_fallback(request: Request, call_next):
+        # req: FR-003, FR-019
+        """Allow MCP to consume API-created managed keys without forking IDAM state."""
+        api_key = request.headers.get("x-api-key", "").strip()
+        if api_key and auth_runtime.api_key_manager.validate(api_key) is None:
+            principal = await _mcp_principal_via_api(api_key)
+            if principal is not None:
+                _seed_local_api_key(
+                    auth_runtime.api_key_manager,
+                    api_key,
+                    owner_id=str(principal.get("actor") or "mcp-managed-key"),
+                )
+                request.state.mcp_remote_roles = principal.get("roles", [])
+                request.state.mcp_remote_capabilities = principal.get("capabilities", [])
+        return await call_next(request)
+
+    app.state.seed_api_key = seed_key
+    app.state.auth_runtime = auth_runtime
+    app.state.admin_runtime = admin_runtime
 
     @app.get(MCP_BASE_PATH)
     def mcp_root() -> dict[str, Any]:
@@ -239,12 +401,23 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
 
         def _handler(payload: dict[str, Any], request: Request, _name: str = contract.name) -> dict[str, Any]:
             actor_id = _actor_from_request(request)
+            roles = _roles_from_request(request, actor_id)
+            # W28A-731-R5: enforce tool-name RBAC (read-only -> reader -> WRITE tools 403),
+            # matching the API tier. The GM1 middleware already denied anon (401); here an
+            # AUTHENTICATED-but-unauthorised role (e.g. reader calling git_commit) -> 403.
+            rbac_engine = RBACEngine(role_permissions={r: set(p) for r, p in tool_role_map.items()})
+            actor_for_rbac = actor_id or "__anonymous__"
+            for role in roles:
+                rbac_engine.assign_role_to_user(actor_for_rbac, role)
+            if not can_execute_tool(rbac_engine, tool_role_map, actor_for_rbac, _name):
+                raise UnauthorisedError(f"role not permitted to execute tool {_name!r}")
             return registry.call_with_access(
                 _name,
                 payload,
                 actor_id=actor_id,
-                roles=_roles_from_request(request, actor_id),
+                roles=roles,
                 capabilities=_capabilities_from_request(request),
+                correlation_id=getattr(request.state, "correlation_id", ""),
             )
 
         tool_registry[contract.name] = {

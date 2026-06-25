@@ -1,0 +1,198 @@
+## terraform version
+Terraform v1.14.9
+on linux_amd64
++ provider registry.terraform.io/hashicorp/local v2.6.2
++ provider registry.terraform.io/hashicorp/null v3.2.4
++ provider registry.terraform.io/hashicorp/random v3.8.1
++ provider registry.terraform.io/hashicorp/vault v5.6.0
++ provider registry.terraform.io/kaginari/docker-utils v0.0.5
++ provider registry.terraform.io/kreuzwerker/docker v3.6.2
+
+Your version of Terraform is out of date! The latest version
+is 1.15.6. You can update by downloading from https://developer.hashicorp.com/terraform/install
+## targeted plan gitmcpserver only
+[0m[1mdata.docker_registry_image.gitmcpserver: Reading...[0m[0m
+[0m[1mdata.vault_generic_secret.cloud_dog_net_certificate: Reading...[0m[0m
+[0m[1mdata.vault_generic_secret.cloud_dog_ai_shared_config: Reading...[0m[0m
+[0m[1mdata.docker_registry_image.gitmcpserver: Read complete after 0s [id=sha256:25fba52d73c2b369e526f551881fb506945323d22694b5c15cb14ac7ef1f8e11][0m
+[0m[1mdocker_image.gitmcpserver: Refreshing state... [id=sha256:a787ea01ec3e68b03779c75919cc56f5acdc0dd8bef31e987286b84095106ebfregistry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest][0m
+[0m[1mdata.vault_generic_secret.cloud_dog_net_certificate: Read complete after 0s [id=kv/cloud-dog-net/cloud_dog_net_certificate][0m
+[0m[1mdata.vault_generic_secret.cloud_dog_ai_shared_config: Read complete after 0s [id=cloud_dog_ai/config][0m
+[0m[1mdocker_container.gitmcpserver0: Refreshing state... [id=f8d753aa77132b21d3466d9a1d08de0087bf3bea68251c06a3082fdd21da0a7f][0m
+
+[1m[36mNote:[0m[1m Objects have changed outside of Terraform
+[0m
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+[1m  # docker_image.gitmcpserver[0m has changed
+[0m  [33m~[0m[0m resource "docker_image" "gitmcpserver" {
+        id            = "sha256:a787ea01ec3e68b03779c75919cc56f5acdc0dd8bef31e987286b84095106ebfregistry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest"
+      [33m~[0m[0m image_id      = "sha256:a787ea01ec3e68b03779c75919cc56f5acdc0dd8bef31e987286b84095106ebf" [33m->[0m[0m "sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382"
+        name          = "registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest"
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+[31m-[0m/[32m+[0m destroy and then create replacement[0m
+
+Terraform will perform the following actions:
+
+[1m  # docker_container.gitmcpserver0[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "docker_container" "gitmcpserver0" {
+      [32m+[0m[0m bridge                                      = (known after apply)
+      [33m~[0m[0m command                                     = [
+          [31m-[0m[0m "all",
+        ] -> (known after apply)
+      [32m+[0m[0m container_logs                              = (known after apply)
+      [31m-[0m[0m cpu_shares                                  = 0 [90m-> null[0m[0m
+      [31m-[0m[0m dns                                         = [] [90m-> null[0m[0m
+      [31m-[0m[0m dns_opts                                    = [] [90m-> null[0m[0m
+      [31m-[0m[0m dns_search                                  = [] [90m-> null[0m[0m
+      [33m~[0m[0m entrypoint                                  = [
+          [31m-[0m[0m "/app/docker-entrypoint.sh",
+        ] -> (known after apply)
+      [32m+[0m[0m exit_code                                   = (known after apply)
+      [31m-[0m[0m group_add                                   = [] [90m-> null[0m[0m
+      [33m~[0m[0m id                                          = "f8d753aa77132b21d3466d9a1d08de0087bf3bea68251c06a3082fdd21da0a7f" -> (known after apply)
+      [33m~[0m[0m image                                       = "sha256:a787ea01ec3e68b03779c75919cc56f5acdc0dd8bef31e987286b84095106ebf" -> (known after apply) [31m# forces replacement[0m[0m
+      [33m~[0m[0m init                                        = false -> (known after apply)
+      [33m~[0m[0m ipc_mode                                    = "private" -> (known after apply)
+      [33m~[0m[0m log_driver                                  = "json-file" -> (known after apply)
+      [31m-[0m[0m log_opts                                    = {} [90m-> null[0m[0m
+      [31m-[0m[0m max_retry_count                             = 0 [90m-> null[0m[0m
+      [31m-[0m[0m memory                                      = 0 [90m-> null[0m[0m
+      [31m-[0m[0m memory_swap                                 = 0 [90m-> null[0m[0m
+        name                                        = "gitmcpserver0.app.vpc0.cloud-dog.net"
+      [33m~[0m[0m network_data                                = [
+          [31m-[0m[0m {
+              [31m-[0m[0m gateway                   = "10.26.2.1"
+              [31m-[0m[0m global_ipv6_prefix_length = 0
+              [31m-[0m[0m ip_address                = "10.26.2.70"
+              [31m-[0m[0m ip_prefix_length          = 24
+              [31m-[0m[0m mac_address               = "0e:b4:89:11:75:34"
+              [31m-[0m[0m network_name              = "app_vpc0_cloud_dog_net"
+                [90m# (2 unchanged attributes hidden)[0m[0m
+            },
+        ] -> (known after apply)
+      [31m-[0m[0m privileged                                  = false [90m-> null[0m[0m
+      [31m-[0m[0m publish_all_ports                           = false [90m-> null[0m[0m
+      [33m~[0m[0m runtime                                     = "runc" -> (known after apply)
+      [33m~[0m[0m security_opts                               = [] -> (known after apply)
+      [33m~[0m[0m shm_size                                    = 64 -> (known after apply)
+      [32m+[0m[0m stop_signal                                 = (known after apply)
+      [33m~[0m[0m stop_timeout                                = 0 -> (known after apply)
+      [31m-[0m[0m storage_opts                                = {} [90m-> null[0m[0m
+      [31m-[0m[0m sysctls                                     = {} [90m-> null[0m[0m
+      [31m-[0m[0m tmpfs                                       = {} [90m-> null[0m[0m
+      [31m-[0m[0m working_dir                                 = "/app" [90m-> null[0m[0m
+        [90m# (21 unchanged attributes hidden)[0m[0m
+
+      [31m-[0m[0m volumes {
+          [31m-[0m[0m container_path = "/app/certs" [90m-> null[0m[0m
+          [31m-[0m[0m host_path      = "/opt/docker/gitmcpserver0/certificates" [90m-> null[0m[0m
+          [31m-[0m[0m read_only      = false [90m-> null[0m[0m
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+      [31m-[0m[0m volumes {
+          [31m-[0m[0m container_path = "/app/data" [90m-> null[0m[0m
+          [31m-[0m[0m host_path      = "/opt/docker/gitmcpserver0/data" [90m-> null[0m[0m
+          [31m-[0m[0m read_only      = false [90m-> null[0m[0m
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+      [31m-[0m[0m volumes {
+          [31m-[0m[0m container_path = "/app/logs" [90m-> null[0m[0m
+          [31m-[0m[0m host_path      = "/opt/docker/gitmcpserver0/logs" [90m-> null[0m[0m
+          [31m-[0m[0m read_only      = false [90m-> null[0m[0m
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+      [32m+[0m[0m volumes {
+          [32m+[0m[0m container_path = "/app/certs"
+          [32m+[0m[0m host_path      = "/opt/docker/gitmcpserver0/certificates"
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+      [32m+[0m[0m volumes {
+          [32m+[0m[0m container_path = "/app/data"
+          [32m+[0m[0m host_path      = "/opt/docker/gitmcpserver0/data"
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+      [32m+[0m[0m volumes {
+          [32m+[0m[0m container_path = "/app/logs"
+          [32m+[0m[0m host_path      = "/opt/docker/gitmcpserver0/logs"
+            [90m# (2 unchanged attributes hidden)[0m[0m
+        }
+
+        [90m# (68 unchanged blocks hidden)[0m[0m
+    }
+
+[1m  # docker_image.gitmcpserver[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "docker_image" "gitmcpserver" {
+      [33m~[0m[0m id            = "sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest" -> (known after apply)
+      [33m~[0m[0m image_id      = "sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382" -> (known after apply)
+        name          = "registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest"
+      [33m~[0m[0m pull_triggers = [ [31m# forces replacement[0m[0m
+          [31m-[0m[0m "sha256:30288f971eb174b691f87576dd633a2493d831335cc8ac2ec8f00c7fbc8c9f02",
+          [32m+[0m[0m "sha256:25fba52d73c2b369e526f551881fb506945323d22694b5c15cb14ac7ef1f8e11",
+        ]
+      [33m~[0m[0m repo_digest   = "registry.cloud-dog.net:443/cloud-dog/git-mcp-server@sha256:25fba52d73c2b369e526f551881fb506945323d22694b5c15cb14ac7ef1f8e11" -> (known after apply)
+    }
+
+[1mPlan:[0m [0m2 to add, 0 to change, 2 to destroy.
+[33m╷[0m[0m
+[33m│[0m [0m[1m[33mWarning: [0m[0m[1mResource targeting is in effect[0m
+[33m│[0m [0m
+[33m│[0m [0m[0mYou are creating a plan with the -target option, which means that the
+[33m│[0m [0mresult of this plan may not represent all of the changes requested by the
+[33m│[0m [0mcurrent configuration.
+[33m│[0m [0m
+[33m│[0m [0mThe -target option is not for routine use, and is provided only for
+[33m│[0m [0mexceptional situations such as recovering from errors or mistakes, or when
+[33m│[0m [0mTerraform specifically suggests to use it as part of an error message.
+[33m╵[0m[0m
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Saved the plan to: /tmp/w28a745-gitmcpserver0.tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "/tmp/w28a745-gitmcpserver0.tfplan"
+## targeted apply gitmcpserver only
+[0m[1mdocker_container.gitmcpserver0: Destroying... [id=f8d753aa77132b21d3466d9a1d08de0087bf3bea68251c06a3082fdd21da0a7f][0m[0m
+[0m[1mdocker_container.gitmcpserver0: Destruction complete after 0s[0m
+[0m[1mdocker_image.gitmcpserver: Destroying... [id=sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest][0m[0m
+[0m[1mdocker_image.gitmcpserver: Destruction complete after 0s[0m
+[0m[1mdocker_image.gitmcpserver: Creating...[0m[0m
+[0m[1mdocker_image.gitmcpserver: Creation complete after 0s [id=sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest][0m
+[0m[1mdocker_container.gitmcpserver0: Creating...[0m[0m
+[0m[1mdocker_container.gitmcpserver0: Creation complete after 1s [id=00e62a30ad2928245230e266be6cf08bc26285c455c48bb03961fffb7a8c9552][0m
+[33m╷[0m[0m
+[33m│[0m [0m[1m[33mWarning: [0m[0m[1mApplied changes may be incomplete[0m
+[33m│[0m [0m
+[33m│[0m [0m[0mThe plan was created with the -target option in effect, so some changes
+[33m│[0m [0mrequested in the configuration may have been ignored and the output values
+[33m│[0m [0mmay not be fully updated. Run the following command to verify that no other
+[33m│[0m [0mchanges are pending:
+[33m│[0m [0m    terraform plan
+[33m│[0m [0m
+[33m│[0m [0mNote that the -target option is not suitable for routine use, and is
+[33m│[0m [0mprovided only for exceptional situations such as recovering from errors or
+[33m│[0m [0mmistakes, or when Terraform specifically suggests to use it as part of an
+[33m│[0m [0merror message.
+[33m╵[0m[0m
+[0m[1m[32m
+Apply complete! Resources: 2 added, 0 changed, 2 destroyed.[0m
+[0m[1m[32m
+Outputs:
+
+[0mcloud_dog_net_ca = <sensitive>
+cloud_dog_net_cert = <sensitive>
+cloud_dog_net_full = <sensitive>
+cloud_dog_net_key = <sensitive>

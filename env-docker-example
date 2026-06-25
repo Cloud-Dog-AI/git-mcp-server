@@ -1,0 +1,63 @@
+# git-mcp-server — preprod all-in-one docker environment example
+#
+# Use as a single source of truth for:
+# - local-docker-server.sh control settings
+# - docker compose runtime env for the `all-in-one` profile
+#
+# Secrets:
+# - Keep VAULT_TOKEN out of this file.
+# - Supply it from external vault env before startup, for example:
+#     set -a; source /opt/iac/Development/cloud-dog-ai/env-vault; set +a
+
+# ---- local-docker-server.sh control plane ----
+LOCAL_DOCKER_COMPOSE_FILE=docker/docker-compose.yml
+LOCAL_DOCKER_PROJECT_NAME=git-mcp-preprod
+LOCAL_DOCKER_COMPOSE_PROFILES=all-in-one
+LOCAL_DOCKER_SERVICES=all-in-one
+
+# ---- all-in-one host runtime contract ----
+CLOUD_DOG__SERVER__PORT=18585
+CLOUD_DOG__SERVER__MCP__PORT=18586
+
+# ---- externalised secure config ----
+VAULT_ADDR=https://vault0.cloud-dog.net
+# VAULT_TOKEN is intentionally external (env-vault / secret manager)
+# VAULT_MOUNT_POINT and VAULT_CONFIG_PATH use platform defaults.
+
+# ---- external-runtime test contract (macro IT/AT compatible) ----
+TEST_RUNTIME_MODE=local-docker
+TEST_USE_EXTERNAL_RUNTIME=true
+TEST_ENV_TIER=IT
+TEST_API_BASE_URL=http://127.0.0.1:18585
+TEST_MCP_BASE_URL=http://127.0.0.1:18586
+TEST_API_BASE_PATH=/api/v1
+TEST_MCP_BASE_PATH=/mcp
+TEST_WEB_BASE_PATH=/
+TEST_A2A_BASE_PATH=/a2a
+TEST_A2A_API_KEY=placeholder
+
+# ---- seed-key + container sync used by IT/AT fixtures ----
+GIT_MCP_SEED_KEY_FILE=./working/it/seed_api_key.txt
+GIT_MCP_CONTAINER_NAME=git-mcp-all
+GIT_MCP_CONTAINER_KEY_PATH=/app/working/it/seed_api_key.txt
+
+# ---- external remote test defaults (IT1.9 / IT1.10) ----
+GIT_MCP_REMOTE_REPO=https://git.cloud-dog.net/playgroup/test-project.git
+GIT_MCP_REMOTE_REPOS=https://git.cloud-dog.net/playgroup/test-project.git
+GIT_MCP_ALLOWED_REMOTE_PREFIXES=https://git.cloud-dog.net/playgroup/
+GIT_MCP_REMOTE_BRANCH_PREFIX=test/git-mcp-
+GIT_MCP_REMOTE_CLONE_DEPTH=1
+GIT_MCP_REMOTE_OPEN_TIMEOUT_SECONDS=600
+GIT_MCP_REMOTE_OP_TIMEOUT_SECONDS=180
+GIT_MCP_REQUEST_TIMEOUT_SECONDS=600
+
+# ---- optional network/tls tuning (uncomment when required) ----
+NO_PROXY=127.0.0.1,localhost,.cloud-dog.net
+# HTTPS_PROXY=http://proxy.example:3128
+# HTTP_PROXY=http://proxy.example:3128
+# CLOUD_DOG_TLS_CA_BUNDLE=/app/certs/ca-bundle.crt
+# CLOUD_DOG_TLS_CORPORATE_CA=/app/certs/corporate-internal.crt
+# CLOUD_DOG_TLS_ACME_CA=/app/certs/acme-chain.crt
+
+CLOUD_DOG__DB__DIALECT=sqlite
+CLOUD_DOG__DB__DATABASE=./data/git_mcp.db

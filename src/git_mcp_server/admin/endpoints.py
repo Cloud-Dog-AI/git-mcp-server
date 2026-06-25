@@ -20,6 +20,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 from git_mcp_server.auth.middleware import AuthRuntime
 from git_tools.admin.runtime import AdminRuntime
+from git_tools.admin.roles_service import RolesService, RolesServiceError
+from git_tools.workspaces.manager import WorkspaceManager
 
 
 _ROLE_PERMISSIONS = {
@@ -174,12 +176,44 @@ def build_admin_router(
     *,
     auth_runtime: AuthRuntime | None = None,
     prefix: str = "/admin",
+    roles_service: RolesService | None = None,
+    workspace_manager: WorkspaceManager | None = None,
 ) -> APIRouter:
-    """Build admin router for profile, user, group, and API-key CRUD.
+    """Build admin router for profile, user, group, role, and API-key CRUD.
 
     Requirements: CFG-06, CFG-08, CFG-09, CFG-10, CFG-11.
     """
     router = APIRouter(prefix=prefix, tags=["admin"])
+
+    @router.get("/workspaces")
+    def admin_list_workspaces(request: Request) -> dict[str, Any]:
+        """GM4 (W28C-1705): list on-disk workspaces (age/state/profile) + disk pressure."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        if workspace_manager is None:
+            return _envelope(result={"items": [], "disk_percent": 0.0, "stuck_merges": 0})
+        items = workspace_manager.scan_disk_workspaces()
+        stuck = sum(1 for w in items if w.get("state") == "merge")
+        return _envelope(
+            result={
+                "items": items,
+                "disk_percent": workspace_manager.disk_usage_percent(),
+                "stuck_merges": stuck,
+            }
+        )
+
+    @router.delete("/workspaces/{workspace_id}")
+    def admin_delete_workspace(workspace_id: str, request: Request) -> dict[str, Any]:
+        """GM4 (W28C-1705): explicitly reap a workspace directory."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        if workspace_manager is None:
+            raise HTTPException(status_code=503, detail="workspace manager unavailable")
+        try:
+            existed = workspace_manager.delete_workspace_dir(workspace_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not existed:
+            raise HTTPException(status_code=404, detail=f"workspace not found: {workspace_id}")
+        return _envelope(result={"workspace_id": workspace_id, "deleted": True})
 
     @router.get("/profiles")
     def list_profiles(request: Request) -> dict[str, Any]:
@@ -386,6 +420,104 @@ def build_admin_router(
             result = admin_runtime.revoke_api_key(key_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return _envelope(result=result)
+
+    # ----- Roles (PS-71 §IW3A; canonical cloud_dog_idam role store) -----------
+    def _require_roles_service() -> RolesService:
+        if roles_service is None:
+            raise HTTPException(status_code=503, detail="roles service unavailable")
+        return roles_service
+
+    @router.get("/roles")
+    def list_roles(request: Request) -> dict[str, Any]:
+        """Return all roles in the PS-71 §IW3A.1 column shape."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        service = _require_roles_service()
+        return _envelope(result={"items": service.list_roles()})
+
+    @router.get("/permissions")
+    def list_permissions(request: Request) -> dict[str, Any]:
+        """Return the assignable-permission catalogue for the PS-71 role editor.
+
+        W28A-889-A-R2: the shared ``@cloud-dog/idam`` Roles page (``IdamRolesPage``)
+        calls ``GET /v1/admin/permissions`` to populate the role-editor permission
+        picker. Source of truth is the RBAC baseline role->permission map plus any
+        permissions already present on stored roles; admin-gated like the rest of
+        ``/admin/*``. The shared client's ``normalizeIdamEnvelope`` exposes
+        ``result.items`` under the ``permissions`` key the page reads.
+        """
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        catalogue: set[str] = set()
+        for perms in _ROLE_PERMISSIONS.values():
+            catalogue.update(str(p).strip() for p in perms if str(p).strip())
+        if roles_service is not None:
+            try:
+                for role in roles_service.list_roles():
+                    raw = role.get("permissions") if isinstance(role, dict) else None
+                    if isinstance(raw, (list, tuple, set)):
+                        catalogue.update(str(p).strip() for p in raw if str(p).strip())
+            except RolesServiceError:
+                pass
+        return _envelope(result={"items": sorted(catalogue)})
+
+    @router.get("/roles/{role_id}")
+    def read_role(role_id: str, request: Request) -> dict[str, Any]:
+        """Return one role by id."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        service = _require_roles_service()
+        try:
+            return _envelope(result=service.get_role(role_id))
+        except RolesServiceError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+    @router.post("/roles")
+    def create_role(body: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Create a role with name, description, and permissions."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        service = _require_roles_service()
+        try:
+            result = service.create_role(
+                name=str(body.get("name", "")),
+                description=str(body.get("description", "")),
+                permissions=list(body.get("permissions", [])),
+            )
+        except RolesServiceError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+        return _envelope(result=result)
+
+    def _update_role(role_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        service = _require_roles_service()
+        data: dict[str, Any] = {}
+        if "description" in body:
+            data["description"] = str(body.get("description", ""))
+        if "permissions" in body:
+            data["permissions"] = list(body.get("permissions", []))
+        try:
+            result = service.update_role(role_id, data=data)
+        except RolesServiceError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+        return _envelope(result=result)
+
+    @router.put("/roles/{role_id}")
+    def update_role(role_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Replace editable role fields (description, permissions)."""
+        return _update_role(role_id, body, request)
+
+    @router.patch("/roles/{role_id}")
+    def patch_role(role_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Partially update editable role fields (description, permissions)."""
+        return _update_role(role_id, body, request)
+
+    @router.delete("/roles/{role_id}")
+    def delete_role(role_id: str, request: Request) -> dict[str, Any]:
+        """Delete a role. Baseline roles are protected (403)."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        service = _require_roles_service()
+        try:
+            result = service.delete_role(role_id)
+        except RolesServiceError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
         return _envelope(result=result)
 
     return router

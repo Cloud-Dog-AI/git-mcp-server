@@ -196,8 +196,13 @@ class AdminRuntime:
         }
 
     def list_profiles(self) -> dict[str, dict[str, Any]]:
-        """Return all stored repository profiles."""
-        return self.profile_store
+        """Return all stored repository profiles as a materialised snapshot.
+
+        ``profile_store`` may be a durable ``ProfileStore`` (DB-backed mapping), so
+        materialise to a plain dict here for JSON serialisation; a plain-dict store is
+        simply copied (W28C-1705 GM2).
+        """
+        return dict(self.profile_store)
 
     def read_profile(self, name: str) -> dict[str, Any]:
         """Return one stored profile by name."""

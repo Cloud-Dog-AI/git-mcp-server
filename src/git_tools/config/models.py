@@ -128,10 +128,21 @@ class WebConfig(BaseModel):
 
 
 class WebLoginConfig(BaseModel):
-    """Cookie-login credentials for the standalone Web UI."""
+    """Cookie-login credentials for the standalone Web UI.
+
+    Thread-a (PROGRAM-IDAM-RECOVERY-2) flat WebUI login: the three flat roles
+    ``admin`` / ``read-write`` / ``read-only``. The admin account keeps its
+    historical credentials; ``read_write`` and ``read_only`` are seeded so all
+    three flat roles are demoable out of the box. Roles/permissions come from
+    the ONE shared idam guard (see ``git_mcp_server.web_flat_roles``).
+    """
 
     username: str = "admin"
     password: str = ""
+    read_write_username: str = "read-write"
+    read_write_password: str = ""
+    read_only_username: str = "read-only"
+    read_only_password: str = ""
 
 
 class JWTConfig(BaseModel):
@@ -260,6 +271,9 @@ class ProfileConfig(BaseModel):
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     auth: ProfileAuthConfig = Field(default_factory=ProfileAuthConfig)
     recovery: RecoveryConfig = Field(default_factory=RecoveryConfig)
+    # W28J-1327: profile ownership + access metadata (surfaced by the Profiles WebUI, GMC-P-10).
+    owner_user_id: str | None = None
+    rbac_role_required: str | None = None
 
 
 class RBACConfig(BaseModel):

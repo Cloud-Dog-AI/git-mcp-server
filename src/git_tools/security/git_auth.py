@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import MutableMapping
 from urllib.parse import urlparse
@@ -75,6 +76,8 @@ def prime_git_https_credentials(env: MutableMapping[str, str], remote_url: str) 
 
     _inject_git_config_env(env, "credential.helper", "cache --timeout=900")
     _inject_git_config_env(env, "credential.useHttpPath", "true")
+    if os.environ.get("CLOUD_DOG__RUNTIME__MODE", "").strip() == "local-docker":
+        _inject_git_config_env(env, "safe.directory", "*")
     env["GIT_CONFIG_GLOBAL"] = "/dev/null"
     env["GIT_TERMINAL_PROMPT"] = "0"
 

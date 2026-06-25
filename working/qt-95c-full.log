@@ -1,0 +1,72 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-8.4.2, pluggy-1.6.0 -- /opt/iac/Development/cloud-dog-ai/git-mcp-server/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /opt/iac/Development/cloud-dog-ai/git-mcp-server
+configfile: pyproject.toml
+plugins: asyncio-0.26.0, anyio-4.13.0, timeout-2.4.0, cov-5.0.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 600.0s
+timeout method: signal
+timeout func_only: False
+collecting ... collected 58 items
+
+tests/quality/QT_COMPLIANCE/test_qt1_security_suite.py::test_qt1_1_secrets_never_logged PASSED [  1%]
+tests/quality/QT_COMPLIANCE/test_qt1_security_suite.py::test_qt1_2_path_traversal_prevention PASSED [  3%]
+tests/quality/QT_COMPLIANCE/test_qt1_security_suite.py::test_qt1_3_domain_specific_safety PASSED [  5%]
+tests/quality/QT_COMPLIANCE/test_qt1_security_suite.py::test_qt1_4_uk_english_compliance PASSED [  6%]
+tests/quality/QT_COMPLIANCE/test_qt26_secrets_separation.py::test_qt2_6_no_hardcoded_secrets_in_source PASSED [  8%]
+tests/quality/QT_COMPLIANCE/test_qt26_secrets_separation.py::test_qt2_6_sensitive_env_values_use_vault_or_scoped_files PASSED [ 10%]
+tests/quality/QT_COMPLIANCE/test_qt26_secrets_separation.py::test_qt2_6_defaults_config_do_not_embed_plain_secrets PASSED [ 12%]
+tests/quality/QT_COMPLIANCE/test_qt27_bespoke_code_scan.py::test_qt2_7_no_bespoke_platform_replacements PASSED [ 13%]
+tests/quality/QT_COMPLIANCE/test_qt3_documentation_suite.py::test_qt3_1_required_files_exist PASSED [ 15%]
+tests/quality/QT_COMPLIANCE/test_qt3_documentation_suite.py::test_qt3_2_requirement_id_format PASSED [ 17%]
+tests/quality/QT_COMPLIANCE/test_qt3_documentation_suite.py::test_qt3_3_test_id_uniqueness PASSED [ 18%]
+tests/quality/QT_COMPLIANCE/test_qt_library_server_separation.py::test_qt_library_layer_has_no_transport_imports PASSED [ 20%]
+tests/quality/QT_COMPLIANCE/test_qt_library_server_separation.py::test_qt_server_layer_has_no_direct_gitpython_imports PASSED [ 22%]
+tests/quality/QT_COMPLIANCE/test_qt_migration_completeness.py::test_no_yaml_safe_load_for_config PASSED [ 24%]
+tests/quality/QT_COMPLIANCE/test_qt_migration_completeness.py::test_no_raw_fastapi PASSED [ 25%]
+tests/quality/QT_COMPLIANCE/test_qt_migration_completeness.py::test_no_bespoke_auth PASSED [ 27%]
+tests/quality/QT_COMPLIANCE/test_qt_migration_completeness.py::test_no_os_environ_for_config PASSED [ 29%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_config_uses_cloud_dog_config PASSED [ 31%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_logging_uses_cloud_dog_logging PASSED [ 32%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_api_uses_cloud_dog_api_kit PASSED [ 34%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_auth_uses_cloud_dog_idam PASSED [ 36%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_no_bespoke_db_access PASSED [ 37%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_no_bespoke_llm_calls PASSED [ 39%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_no_bespoke_vdb_calls PASSED [ 41%]
+tests/quality/QT_COMPLIANCE/test_qt_package_adoption.py::test_pyproject_declares_platform_packages PASSED [ 43%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_no_hardcoded_urls PASSED [ 44%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_no_hardcoded_credentials PASSED [ 46%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_no_direct_external_imports PASSED [ 48%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_no_pytest_skip_in_it_at PASSED [ 50%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_no_mock_in_it_at PASSED [ 51%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_file_headers_present PASSED [ 53%]
+tests/quality/QT_COMPLIANCE/test_qt_rules_compliance.py::test_functions_have_docstrings PASSED [ 55%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_all_requirements_have_tests PASSED [ 56%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_all_tests_have_requirements PASSED [ 58%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_all_requirements_have_code PASSED [ 60%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_delivery_matrix_complete PASSED [ 62%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_all_test_functions_have_requirements PASSED [ 63%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_no_orphan_test_files PASSED [ 65%]
+tests/quality/QT_COMPLIANCE/test_qt_traceability.py::test_w18a03_webui_accessibility_evidence PASSED [ 67%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_defaults_yaml_exists PASSED [ 68%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_defaults_yaml_no_secrets PASSED [ 70%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_config_yaml_no_secrets PASSED [ 72%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_env_files_use_vault_expressions PASSED [ 74%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_no_secrets_in_source PASSED [ 75%]
+tests/quality/QT_COMPLIANCE/test_qt_vault_config_contract.py::test_env_files_exist_per_tier PASSED [ 77%]
+tests/quality/QT_LoggingCompliance/test_logging_compliance.py::test_defaults_yaml_has_integrity_config PASSED [ 79%]
+tests/quality/QT_LoggingCompliance/test_logging_compliance.py::test_defaults_yaml_has_rotation_config PASSED [ 81%]
+tests/quality/QT_LoggingCompliance/test_logging_compliance.py::test_defaults_yaml_has_retention_config PASSED [ 82%]
+tests/quality/QT_LoggingCompliance/test_logging_compliance.py::test_audit_events_doc_exists PASSED [ 84%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_logging_uses_platform PASSED [ 86%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_config_uses_platform PASSED [ 87%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_auth_uses_platform PASSED [ 89%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_jobs_avoid_bespoke_queue_primitives PASSED [ 91%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_no_direct_llm_calls PASSED [ 93%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_no_hardcoded_runtime_secrets PASSED [ 94%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_no_internal_hostnames PASSED [ 96%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_pyproject_declares_platform_packages PASSED [ 98%]
+tests/quality/QT_PACKAGE_COMPLIANCE/test_package_compliance.py::test_package_compliance_server_scripts_and_docs_exist PASSED [100%]
+
+============================== 58 passed in 2.26s ==============================

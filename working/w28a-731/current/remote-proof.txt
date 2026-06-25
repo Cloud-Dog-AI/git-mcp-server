@@ -1,0 +1,11 @@
+# W28A-731-R5 remote-proof
+EVIDENCE_TAG: W28A-731-R5-EVIDENCE
+FINAL_PROOF_TAG: W28A-731-R5-FINAL-PROOF
+git rev-parse HEAD: 68b7cd10c71076338b8198a813323fb4937e4128
+git ls-remote origin refs/heads/main:
+68b7cd10c71076338b8198a813323fb4937e4128	refs/heads/main
+git ls-remote origin refs/tags/W28A-731-R5-EVIDENCE:
+68b7cd10c71076338b8198a813323fb4937e4128	refs/tags/W28A-731-R5-EVIDENCE
+source commit (web_server.py + defaults.yaml): e486098 (ancestor of origin/main: YES)
+monorepo G8 spec commit: 3d6f6d1 on cloud-dog-ai-ui-monorepo origin/main
+deployed image digest: sha256:30288f971eb174b691f87576dd633a2493d831335cc8ac2ec8f00c7fbc8c9f02 (image_id sha256:a787ea01)

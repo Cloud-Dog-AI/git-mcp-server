@@ -77,6 +77,10 @@ if [[ -n "${NO_PROXY:-}" ]]; then
   git config --global http.noProxy "${NO_PROXY}" || true
 fi
 git config --global http.sslCAInfo "${GIT_SSL_CAINFO}" || true
+if [[ "${CLOUD_DOG__RUNTIME__MODE:-}" == "local-docker" ]]; then
+  # Local Docker binds host-created fixture repositories and workspace volumes.
+  git config --global --add safe.directory '*' || true
+fi
 
 # ── Env file loading ────────────────────────────────────────────
 ENV_FILE="${CLOUD_DOG_ENV_FILE:-}"
@@ -121,6 +125,19 @@ print(f"{scheme}://{host}:{cfg.api_server.port}/health")
 PY
 }
 
+wait_for_api_health() {
+  local api_health_url
+  api_health_url="$(resolve_api_probe_url)"
+  for _ in {1..60}; do
+    if curl -fsS "${api_health_url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "API health check did not pass: ${api_health_url}" >&2
+  return 1
+}
+
 # ── Graceful shutdown ───────────────────────────────────────────
 shutdown() {
   echo "[INFO] Stopping services..."
@@ -131,7 +148,11 @@ trap shutdown INT TERM
 # ── Mode dispatch ───────────────────────────────────────────────
 case "${1:-all}" in
   all)
-    /app/server_control.sh ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} start all
+    /app/server_control.sh ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} start api
+    wait_for_api_health
+    /app/server_control.sh ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} start web
+    /app/server_control.sh ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} start mcp
+    /app/server_control.sh ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} start a2a
     tail -F "${CLOUD_DOG_LOG_DIR:-/app/logs}"/*.log 2>/dev/null &
     wait $!
     ;;

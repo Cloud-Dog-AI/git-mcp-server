@@ -1,0 +1,6 @@
+dev keys: ['applications', 'channels', 'databases', 'email', 'idp', 'keys', 'models', 'redis', 'repository', 'services', 'storage', 'vdbs']
+dev.services keys: ['chatclient0', 'db-mcp', 'expert-agent', 'expertagent0', 'file-mcp', 'filemcpserver0', 'git-dmz', 'git-gateway', 'git-public', 'git-repository', 'gitmcpserver0', 'imap-mcp', 'imapmcpserver0', 'index-retriever', 'indexretriever0', 'markermcp', 'mineru', 'notificationagent0', 'searchhxng', 'searchmcp', 'sql-agent', 'sqlagent0']
+dev.storage keys: ['ftp', 'github', 'gitlab', 'google_drive', 's3', 'webdav']
+dev.storage.gitlab keys: ['developer_token', 'maintainer_token', 'url']
+dev.idp keys: ['auth0', 'google', 'keycloak', 'ldap']
+dev.services.gitmcpserver0 keys: ['a2a_url', 'api_key', 'api_url', 'mcp_url', 'web_url']

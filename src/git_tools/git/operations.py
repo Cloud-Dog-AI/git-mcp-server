@@ -52,7 +52,11 @@ def build_git_log_args(
     max_count: int | None = None,
 ) -> list[str]:
     """Build deterministic git log argument list from filters."""
-    args: list[str] = ["--oneline"]
+    # One line per commit (keeps max-count line semantics) but TAB-delimited with the fields the
+    # Commit Log UI renders: full hash, author name, ISO author-date, subject. Plain `--oneline`
+    # only emitted "<short> <subject>", which the UI's parseGitLogOutput could not parse (it
+    # surfaced a single garbage row and dropped author/date) — W28J-1330.
+    args: list[str] = ["--pretty=format:%H%x09%an%x09%aI%x09%s"]
     if author:
         args.append(f"--author={author}")
     if since:

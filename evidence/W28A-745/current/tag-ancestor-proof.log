@@ -1,0 +1,16 @@
+## W28A-745 tag ancestry proof
+
+lane=W28A-745
+branch=main
+source_tag=W28A-745-SOURCE
+evidence_tag=W28A-745-EVIDENCE
+final_proof_tag=W28A-745-FINAL-PROOF
+
+Verification commands:
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
+git ls-remote origin refs/tags/W28A-745-EVIDENCE
+git ls-remote origin refs/tags/W28A-745-FINAL-PROOF
+git merge-base --is-ancestor W28A-745-FINAL-PROOF origin/main
+
+The final live platform validator output is the authoritative hash-bearing tag ancestry proof.

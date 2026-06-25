@@ -1,6 +1,6 @@
 # git-mcp-server — Docker Environment (PS-97 v1.1 §1.1.4 PUBLIC variant)
 #
-# PUBLIC variant — for external / Gitea-boundary deployments.
+# PUBLIC variant — for external / GitHub-boundary deployments.
 # Uses *.example.com placeholders with <your-token-here> tokens.
 # Deployment-specific variants can provide private endpoints outside this file.
 #

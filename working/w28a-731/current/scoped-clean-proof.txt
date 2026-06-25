@@ -1,0 +1,5 @@
+# W28A-731-R5 scoped-clean proof (lane scope: web_server.py, defaults.yaml, evidence pack)
+## git status --short -- <scope>
+## git diff --name-only -- <scope>
+## git diff --cached --name-only -- <scope>
+## (empty status/diff sections above = scope clean and committed)

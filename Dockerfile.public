@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # git-mcp-server — Dockerfile.public (PS-97 v1.1 §1.1.3)
 #
-# PUBLIC variant — for external / Gitea-boundary builds (e.g. gitea.cloud-dog.net, Docker Hub).
+# PUBLIC variant — for external / GitHub-boundary builds (e.g. ghcr.io, Docker Hub).
 #
 # Package index policy (PS-97 v1.1 §3.3 / §4): a SINGLE public package index is
 # used, supplied via the PUBLIC_PYPI_INDEX_URL build ARG (default: public PyPI).
@@ -12,7 +12,7 @@
 #
 # NOTE: platform packages (cloud-dog-config, cloud-dog-logging, cloud-dog-api-kit,
 # cloud-dog-idam, cloud-dog-db, cloud-dog-jobs) MUST be resolvable from the active
-# public index (e.g. pypi.org under the published namespace, or Gitea Packages)
+# public index (e.g. pypi.org under the published namespace, or GitHub Packages)
 # before this Dockerfile can build successfully end-to-end. That publish step is
 # tracked separately as W28A-F3x-APPLY.
 
@@ -43,7 +43,7 @@ COPY src/ ./src/
 RUN --mount=type=secret,id=pip_conf,target=/etc/pip.conf \
     pip install --no-cache-dir \
       --index-url "${PUBLIC_PYPI_INDEX_URL}" \
-      cloud-dog-config cloud-dog-logging "cloud-dog-api-kit==0.12.4" cloud-dog-idam cloud-dog-db "cloud-dog-jobs>=0.3.0" && \
+      cloud-dog-config cloud-dog-logging "cloud-dog-api-kit==0.13.0" "cloud-dog-idam>=0.5.2,<0.6" cloud-dog-db "cloud-dog-jobs>=0.3.0" && \
     pip install --no-cache-dir \
       --index-url "${PUBLIC_PYPI_INDEX_URL}" \
       .

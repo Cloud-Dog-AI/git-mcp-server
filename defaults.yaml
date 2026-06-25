@@ -49,8 +49,20 @@ web:
   session_timeout_minutes: "${CLOUD_DOG_SESSION_TIMEOUT_MINUTES:30}"
 
 web_login:
+  # Thread-a flat WebUI login: three flat roles admin / read-write / read-only.
+  # admin password is operator-supplied via env (CLOUD_DOG_WEB_LOGIN_PASSWORD), set in
+  # read-write / read-only default to EMPTY here so web_server.py seeds the
+  # estate-canonical in-code demo defaults (BlueRiverChair / GreenRiverDesk) — matching
+  # accepted chat-client (W28A-727-R5) + notification-agent (W28A-730-R5). They are still
+  # overridable via the standard CLOUD_DOG__WEB_LOGIN__READ_WRITE_PASSWORD / __READ_ONLY_PASSWORD
+  # env overlay. (W28A-731-R5: the prior `${VAR:''}` default resolved to a literal `''`, which
+  # is non-empty and therefore defeated the in-code fallback, so read-write/read-only could not log in.)
   username: "${CLOUD_DOG_WEB_LOGIN_USERNAME:admin}"
   password: "${CLOUD_DOG_WEB_LOGIN_PASSWORD:''}"
+  read_write_username: "${CLOUD_DOG_WEB_LOGIN_READ_WRITE_USERNAME:read-write}"
+  read_write_password: ""
+  read_only_username: "${CLOUD_DOG_WEB_LOGIN_READ_ONLY_USERNAME:read-only}"
+  read_only_password: ""
 
 auth:
   mode: "api_key"            # api_key | jwt | api_key+jwt
@@ -87,10 +99,10 @@ workspace:
 profiles:
   local_test:
     repo:
-      source: "https://gitea.com/octocat/Hello-World.git"
+      source: "https://github.com/octocat/Hello-World.git"
       default_branch: "main"
       remotes:
-        origin: "https://gitea.com/octocat/Hello-World.git"
+        origin: "https://github.com/octocat/Hello-World.git"
     workspace:
       mode: "ephemeral"
       ttl_seconds: 3600
@@ -114,10 +126,10 @@ profiles:
 
   remote_cloud_dog:
     repo:
-      source: "https://gitea.com/octocat/Hello-World.git"
+      source: "https://github.com/octocat/Hello-World.git"
       default_branch: "main"
       remotes:
-        origin: "https://gitea.com/octocat/Hello-World.git"
+        origin: "https://github.com/octocat/Hello-World.git"
     workspace:
       mode: "ephemeral"
       ttl_seconds: 900

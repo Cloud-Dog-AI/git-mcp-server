@@ -27,6 +27,7 @@ from cloud_dog_storage import path_utils
 from fastapi import APIRouter, HTTPException, Request
 
 from git_mcp_server import __version__
+from git_mcp_server import config_sources
 from git_mcp_server.admin.endpoints import _require_admin
 from git_mcp_server.auth.middleware import AuthRuntime
 from git_tools.admin.runtime import AdminRuntime
@@ -232,6 +233,43 @@ def _normalise_log_entry(log_type: str, line: str) -> dict[str, Any] | None:
     }
 
 
+def _audit_row_matches(row: dict[str, Any], filters: dict[str, str]) -> bool:
+    """AND-combine the W28J-1304 audit filter params against a normalised row.
+
+    Matches against the dedicated normalised fields plus the raw audit record
+    (``correlation_id``, ``actor.actor_id``, ``workspace_id``, ``profile``) and
+    ``details``/``params``. Entity/job dimensions resolve once the emit path
+    threads them (W28J-1309); until then those filters simply match nothing.
+    """
+    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+    details = row.get("details") if isinstance(row.get("details"), dict) else {}
+    params = raw.get("params") if isinstance(raw.get("params"), dict) else {}
+    raw_actor = raw.get("actor") if isinstance(raw.get("actor"), dict) else {}
+
+    def matches(value: str, *candidates: Any) -> bool:
+        value = value.strip()
+        if not value:
+            return True
+        return any(str(c) == value for c in candidates if c not in (None, ""))
+
+    checks = (
+        matches(filters.get("correlation_id", ""), row.get("correlation_id"), raw.get("correlation_id")),
+        matches(filters.get("user", ""), row.get("actor_id"), raw_actor.get("actor_id")),
+        matches(filters.get("workspace_id", ""), raw.get("workspace_id"), details.get("workspace_id"), params.get("workspace_id")),
+        matches(filters.get("profile_id", ""), raw.get("profile"), raw.get("profile_id"), details.get("profile"), params.get("profile")),
+        matches(filters.get("job_id", ""), raw.get("job_id"), details.get("job_id"), params.get("job_id")),
+        matches(filters.get("entity_kind", ""), raw.get("entity_kind"), details.get("entity_kind"), params.get("entity_kind")),
+        matches(
+            filters.get("entity_id", ""),
+            raw.get("entity_id"),
+            details.get("entity_id"),
+            params.get("entity_id"),
+            raw.get("resolved_ref"),
+        ),
+    )
+    return all(checks)
+
+
 def _resolved_log_paths(config: GlobalConfigModel, raw_snapshot: dict[str, Any]) -> dict[str, str]:
     log_snapshot = raw_snapshot.get("log", {}) if isinstance(raw_snapshot.get("log"), dict) else {}
 
@@ -276,6 +314,49 @@ def _mask_runtime_config(value: Any, parent_key: str = "") -> Any:
     if isinstance(value, (list, tuple)):
         return [_mask_runtime_config(item, parent_key) for item in value]
     return value
+
+
+def _settings_reveal_actor(request: Request) -> str:
+    """Identify the reveal actor without disclosing any credential material."""
+    principal = getattr(getattr(request, "state", None), "user", None)
+    if principal is not None:
+        user_id = str(getattr(principal, "user_id", "") or "").strip()
+        if user_id:
+            return user_id
+    return "api-key" if request.headers.get("x-api-key", "").strip() else "unknown"
+
+
+def _emit_settings_reveal_audit(request: Request, auth_runtime: AuthRuntime | None) -> None:
+    """Record an admin Settings secret-reveal server-side (PS-40 / PS-73 v2 SW4B). Best-effort.
+
+    No secret material is recorded — only the actor id, action and correlation id.
+    """
+    actor = _settings_reveal_actor(request)
+    correlation_id = request.headers.get("x-correlation-id", "").strip() or f"settings-reveal-{int(time.time() * 1000)}"
+    try:
+        from cloud_dog_logging import get_audit_logger
+        from cloud_dog_logging.audit_schema import Actor, AuditEvent, Target
+
+        event = AuditEvent(
+            event_type="git_mcp.settings.config.secret_reveal",
+            actor=Actor(type="user", id=actor, roles=[]),
+            action="settings.config.secret_reveal",
+            outcome="success",
+            correlation_id=correlation_id,
+            service="git-mcp-server",
+            target=Target(type="settings", id="config", name="secret_reveal"),
+            details={"note": "admin revealed masked settings values (values not recorded)"},
+        )
+        get_audit_logger().emit(event)
+    except Exception:  # noqa: BLE001 - auditing must never break the request
+        # Best-effort fallback via the platform logger (§1.4: no stdlib logging in
+        # src/). cloud_dog_logging's AppLogger does not accept %s positional args
+        # (AGENT-LESSONS §2.25) — use an f-string.
+        from cloud_dog_logging import get_logger
+
+        get_logger("git_mcp_server.audit").info(
+            f"settings.config.secret_reveal actor={actor} correlation_id={correlation_id}",
+        )
 
 
 def _read_normalised_log_rows(path: str, *, log_type: str, limit: int, contains: str = "") -> list[dict[str, Any]]:
@@ -583,6 +664,8 @@ def build_ui_support_router(
 ) -> APIRouter:
     router = APIRouter(prefix=prefix, tags=["ui-support"])
     log_paths = _resolved_log_paths(config, settings_store.raw_snapshot)
+    # W28J-1328: raw (unresolved) defaults.yaml + config.yaml layers for per-leaf source provenance.
+    _defaults_raw, _config_raw = config_sources.load_layers()
 
     def _version_payload() -> dict[str, Any]:
         return {
@@ -641,6 +724,30 @@ def build_ui_support_router(
             "meta": {},
         }
 
+    # W28J-1328 (GMC-SE-02): effective configuration + per-leaf source provenance for the
+    # PS-73 v2 Settings page. Secret values are masked in /settings/config and never emitted
+    # by /settings/config/sources (which carries only {source, secret} per leaf).
+    @router.get("/settings/config")
+    def settings_config(request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime)
+        snapshot = settings_store.raw_snapshot
+        snapshot_data = getattr(snapshot, "data", snapshot)
+        return {"ok": True, "result": _mask_runtime_config(snapshot_data), "warnings": [], "errors": [], "meta": {}}
+
+    @router.get("/settings/config/sources")
+    def settings_config_sources(request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime)
+        snapshot = settings_store.raw_snapshot
+        snapshot_data = getattr(snapshot, "data", snapshot)
+        sources, counts = config_sources.build_config_sources(snapshot_data, _defaults_raw, _config_raw)
+        return {"ok": True, "result": {"sources": sources, "counts": counts}, "warnings": [], "errors": [], "meta": {}}
+
+    @router.post("/settings/config/audit-reveal")
+    def settings_config_audit_reveal(request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime)
+        _emit_settings_reveal_audit(request, auth_runtime)
+        return {"ok": True, "result": {"revealed": True}, "warnings": [], "errors": [], "meta": {}}
+
     @router.put("/settings")
     def update_settings(body: dict[str, Any], request: Request) -> dict[str, Any]:
         _require_admin(request, auth_runtime, admin_runtime)
@@ -673,14 +780,38 @@ def build_ui_support_router(
         return {"ok": True, "result": {"updated": [updated], "groups": settings_store.groups()}, "warnings": [], "errors": [], "meta": {}}
 
     @router.get("/audit")
-    def audit(request: Request, limit: int = 200, contains: str = "") -> dict[str, Any]:
+    def audit(
+        request: Request,
+        limit: int = 200,
+        contains: str = "",
+        correlation_id: str = "",
+        entity_kind: str = "",
+        entity_id: str = "",
+        user: str = "",
+        workspace_id: str = "",
+        profile_id: str = "",
+        job_id: str = "",
+    ) -> dict[str, Any]:
         _require_admin(request, auth_runtime, admin_runtime)
+        cap = max(1, min(limit, 500))
+        filters = {
+            "correlation_id": correlation_id,
+            "entity_kind": entity_kind,
+            "entity_id": entity_id,
+            "user": user,
+            "workspace_id": workspace_id,
+            "profile_id": profile_id,
+            "job_id": job_id,
+        }
+        has_filters = any(value.strip() for value in filters.values())
         rows = _read_normalised_log_rows(
             log_paths["audit"],
             log_type="audit",
-            limit=max(1, min(limit, 500)),
+            limit=500 if has_filters else cap,
             contains=contains,
         )
+        if has_filters:
+            rows = [row for row in rows if _audit_row_matches(row, filters)][:cap]
         return {"ok": True, "result": {"items": rows}, "warnings": [], "errors": [], "meta": {}}
 
     @router.get("/logs")

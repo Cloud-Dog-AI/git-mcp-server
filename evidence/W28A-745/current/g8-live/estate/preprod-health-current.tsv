@@ -1,0 +1,10 @@
+service	host	health_http_code	role	pass
+gitmcpserver0	gitmcpserver0.cloud-dog.net	200	target	PASS
+chatclient0	chatclient0.cloud-dog.net	200	sentinel	PASS
+expertagent0	expertagent0.cloud-dog.net	200	sentinel	PASS
+notificationagent0	notificationagent0.cloud-dog.net	200	sentinel	PASS
+filemcpserver0	filemcpserver0.cloud-dog.net	200	sentinel	PASS
+sqlagent0	sqlagent0.cloud-dog.net	200	sibling	PASS
+dbmcpserver0	dbmcpserver0.cloud-dog.net	200	sibling	PASS
+imapmcpserver0	imapmcpserver0.cloud-dog.net	200	sibling	PASS
+indexretriever0	indexretriever0.cloud-dog.net	200	sibling	PASS

@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from cloud_dog_config import get_config
 from cloud_dog_storage import path_utils
@@ -74,6 +75,7 @@ class Workspace:
     created_at: datetime = field(default_factory=_utcnow)
     last_used_at: datetime = field(default_factory=_utcnow)
     ref_context: RefContext | None = None
+    owner: str | None = None  # authenticated owner (W28J-1302 F-1302-B); None for legacy workspaces
 
 
 def _deterministic_workspace_id(profile: str, session_id: str) -> str:
@@ -114,6 +116,7 @@ class WorkspaceManager:
                     path=entry,
                     created_at=datetime.fromisoformat(meta["created_at"]),
                     last_used_at=datetime.fromisoformat(meta.get("last_used_at", meta["created_at"])),
+                    owner=meta.get("owner"),
                 )
                 self._workspaces[workspace.workspace_id] = workspace
                 _log.info(f"Restored persistent workspace {workspace.workspace_id} from disk")
@@ -127,6 +130,7 @@ class WorkspaceManager:
         session_id: str,
         mode: WorkspaceMode = "ephemeral",
         workspace_id: str | None = None,
+        owner: str | None = None,
     ) -> Workspace:
         """Create and initialise a workspace by cloning the source repository.
 
@@ -148,6 +152,8 @@ class WorkspaceManager:
         existing = self._workspaces.get(workspace_id)
         if existing is not None and existing.path.exists():
             existing.last_used_at = _utcnow()
+            if owner is not None and existing.owner is None:
+                existing.owner = owner
             self._save_metadata(existing)
             return existing
 
@@ -166,6 +172,7 @@ class WorkspaceManager:
                     path=workspace_path,
                     created_at=datetime.fromisoformat(meta["created_at"]),
                     last_used_at=_utcnow(),
+                    owner=meta.get("owner") or owner,
                 )
                 self._workspaces[workspace_id] = workspace
                 self._save_metadata(workspace)
@@ -197,6 +204,7 @@ class WorkspaceManager:
             profile=profile,
             mode=mode,
             path=workspace_path,
+            owner=owner,
         )
         self._workspaces[workspace_id] = workspace
         self._save_metadata(workspace)
@@ -217,6 +225,7 @@ class WorkspaceManager:
                         "mode": workspace.mode,
                         "created_at": workspace.created_at.isoformat(),
                         "last_used_at": workspace.last_used_at.isoformat(),
+                        "owner": workspace.owner,
                     },
                     indent=2,
                 ),
@@ -231,6 +240,30 @@ class WorkspaceManager:
             raise KeyError(f"Unknown workspace: {workspace_id}")
         workspace.last_used_at = _utcnow()
         return workspace
+
+    def list_workspaces(
+        self, owner: str | None = None, profile: str | None = None
+    ) -> list[Workspace]:
+        """Return tracked workspaces, optionally filtered by owner and/or profile.
+
+        Owner filtering supports the WebUI ``GET /v1/workspaces?owner=me``
+        contract (W28J-1302). Legacy workspaces with ``owner is None`` are
+        excluded when an owner filter is supplied, since they predate ownership.
+        """
+        result: list[Workspace] = []
+        for workspace in self._workspaces.values():
+            if owner is not None and workspace.owner != owner:
+                continue
+            if profile is not None and workspace.profile != profile:
+                continue
+            result.append(workspace)
+        result.sort(key=lambda w: w.last_used_at, reverse=True)
+        return result
+
+    def is_open(self, workspace_id: str) -> bool:
+        """Return True when the workspace is tracked and its directory exists."""
+        workspace = self._workspaces.get(workspace_id)
+        return bool(workspace and workspace.path.exists())
 
     def close_workspace(self, workspace_id: str) -> None:
         """Close a workspace and clean ephemeral directories.
@@ -255,6 +288,96 @@ class WorkspaceManager:
                 self.close_workspace(workspace_id)
                 deleted.append(workspace_id)
         return deleted
+
+    # ── GM4 (W28C-1705) — disk-pressure, GC and stuck-merge reaper ──────────────────────
+    # These walk the on-disk base_dir (not just the in-memory tracked dict), because
+    # ephemeral directories from prior process generations remain on disk untracked.
+
+    def disk_usage_percent(self) -> float:
+        """Return the base_dir filesystem usage percentage (GM4 disk-pressure alarm)."""
+        try:
+            usage = shutil.disk_usage(str(self.base_dir))
+        except OSError:
+            return 0.0
+        if usage.total <= 0:
+            return 0.0
+        return round(usage.used / usage.total * 100.0, 1)
+
+    def _safe_workspace_path(self, workspace_id: str) -> Path:
+        """Resolve a workspace id to a path strictly inside base_dir (traversal guard)."""
+        target = (self.base_dir / workspace_id).resolve()
+        if target == self.base_dir or self.base_dir not in target.parents:
+            raise ValueError(f"invalid workspace id: {workspace_id!r}")
+        return target
+
+    def scan_disk_workspaces(self) -> list[dict[str, Any]]:
+        """Report every workspace directory on disk with age/state/mode/profile (GM4)."""
+        now = _utcnow()
+        out: list[dict[str, Any]] = []
+        if not self.base_dir.exists():
+            return out
+        for entry in self.base_dir.iterdir():
+            if not entry.is_dir():
+                continue
+            meta: dict[str, Any] = {}
+            meta_path = entry / _WORKSPACE_META_FILE
+            if meta_path.exists():
+                try:
+                    meta = json.loads(load_host_text(meta_path))
+                except (ValueError, OSError):
+                    meta = {}
+            try:
+                mtime = datetime.fromtimestamp(entry.stat().st_mtime, tz=timezone.utc)
+            except OSError:
+                mtime = now
+            age_seconds = max(0.0, (now - mtime).total_seconds())
+            merge_in_progress = (entry / ".git" / "MERGE_HEAD").exists()
+            out.append(
+                {
+                    "id": entry.name,
+                    "mode": str(meta.get("mode") or "ephemeral"),
+                    "profile": meta.get("profile"),
+                    "age_seconds": round(age_seconds, 1),
+                    "state": "merge" if merge_in_progress else "open",
+                    "tracked": entry.name in self._workspaces,
+                }
+            )
+        out.sort(key=lambda w: w["age_seconds"], reverse=True)
+        return out
+
+    def find_stuck_merges(self) -> list[dict[str, Any]]:
+        """Return on-disk workspaces with an in-progress merge (.git/MERGE_HEAD) (GM4)."""
+        return [w for w in self.scan_disk_workspaces() if w["state"] == "merge"]
+
+    def delete_workspace_dir(self, workspace_id: str) -> bool:
+        """Delete a workspace directory on disk and drop tracking (GM4 explicit reap)."""
+        target = self._safe_workspace_path(workspace_id)
+        existed = target.exists()
+        if existed:
+            path_utils.rmtree(str(target), ignore_errors=True)
+        self._workspaces.pop(workspace_id, None)
+        return existed
+
+    def gc_disk(self, *, ttl_seconds: int, stuck_merge_reap_seconds: int) -> dict[str, Any]:
+        """Reap stale ephemeral workspaces + old ephemeral stuck-merges on disk (GM4 GC).
+
+        Persistent workspaces are never auto-reaped; ones older than 7 days are warned only.
+        """
+        reaped: list[str] = []
+        warned_persistent: list[str] = []
+        for w in self.scan_disk_workspaces():
+            mode, age, state = w["mode"], w["age_seconds"], w["state"]
+            if mode == "ephemeral":
+                if (state == "merge" and age > stuck_merge_reap_seconds) or age > ttl_seconds:
+                    if self.delete_workspace_dir(w["id"]):
+                        reaped.append(w["id"])
+            elif mode == "persistent" and age > 7 * 86400:
+                warned_persistent.append(w["id"])
+        return {
+            "reaped": reaped,
+            "warned_persistent": warned_persistent,
+            "disk_percent": self.disk_usage_percent(),
+        }
 
     @staticmethod
     def _ensure_local_branch(repo: Repo, branch_name: str) -> None:

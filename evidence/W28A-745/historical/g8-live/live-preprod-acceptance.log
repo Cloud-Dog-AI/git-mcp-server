@@ -1,0 +1,41 @@
+seed_key=REDACTED
+## live health stability (3 passes)
+### pass 1
+https://gitmcpserver0.cloud-dog.net/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-web","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/api/v1/health -> http_code=200 content_type=application/json
+{"ok":true,"result":{"status":"ok","service":"git-mcp-server","interface":"api"},"warnings":[],"errors":[],"meta":{"request_id":"8fe8f497ac37417cb46bfad5cbf1ec1b","correlation_id":null}}
+https://gitmcpserver0.cloud-dog.net/mcp/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-mcp","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/a2a/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{}}
+### pass 2
+https://gitmcpserver0.cloud-dog.net/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-web","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/api/v1/health -> http_code=200 content_type=application/json
+{"ok":true,"result":{"status":"ok","service":"git-mcp-server","interface":"api"},"warnings":[],"errors":[],"meta":{"request_id":"3298ca89d45d48e983768a73232e90f0","correlation_id":null}}
+https://gitmcpserver0.cloud-dog.net/mcp/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-mcp","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/a2a/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{}}
+### pass 3
+https://gitmcpserver0.cloud-dog.net/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-web","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/api/v1/health -> http_code=200 content_type=application/json
+{"ok":true,"result":{"status":"ok","service":"git-mcp-server","interface":"api"},"warnings":[],"errors":[],"meta":{"request_id":"4aa7cc91ec384c0d8be6c3d3ad326ff6","correlation_id":null}}
+https://gitmcpserver0.cloud-dog.net/mcp/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server-mcp","version":"0.1.0","env_file":null,"checks":{}}
+https://gitmcpserver0.cloud-dog.net/a2a/health -> http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{}}
+## authenticated API tools contract
+api_tools_http_code=200 content_type=application/json
+{"ok":true,"result":{"items":[{"name":"repo_open","description":"Create workspace and open repository context.","input_schema":{"$defs":{"RefSpec":{"description":"Ref selection input.","properties":{"type":{"enum":["branch","tag","commit"],"title":"Type","type":"string"},"name":{"title":"Name","type":"string"}},"required":["type","name"],"title":"RefSpec","type":"object"}},"description":"Input for repo_open tool.","properties":{"profile":{"title":"Profile","type":"string"},"session_id":{"title":"Session Id","type":"string"},"repo_source":{"anyOf":[{"type":"string"},{"type":"null"}],"default":n
+## authenticated MCP initialize
+mcp_initialize_http_code=401 content_type=application/json
+{"detail":"Unauthorised"}
+## authenticated MCP tools/list
+mcp_tools_list_http_code=401 content_type=application/json
+{"detail":"Unauthorised"}
+## authenticated A2A health contract
+a2a_auth_health_http_code=200 content_type=application/json
+{"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{}}

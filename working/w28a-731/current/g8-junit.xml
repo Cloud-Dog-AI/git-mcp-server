@@ -1,0 +1,58 @@
+<testsuites id="" name="" tests="6" failures="0" skipped="0" errors="0" time="13.58952">
+<testsuite name="w28a731-flat-login.spec.ts" timestamp="2026-06-11T16:18:41.520Z" hostname="chromium" tests="6" failures="0" skipped="0" time="9.735" errors="0">
+<testcase name="anon: the username/password login box renders (no api-key field, no console errors)" classname="w28a731-flat-login.spec.ts" time="1.246">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-anon-th-ce8b0-ey-field-no-console-errors--chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-anon-th-ce8b0-ey-field-no-console-errors--chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="admin: logs in via username/password, resolves to admin, and browses the repository" classname="w28a731-flat-login.spec.ts" time="1.861">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-admin-l-9d7ca--and-browses-the-repository-chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-admin-l-9d7ca--and-browses-the-repository-chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="read-write: logs in via username/password, resolves to read-write, and views the branch manager" classname="w28a731-flat-login.spec.ts" time="1.604">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-read-wr-a0da5-nd-views-the-branch-manager-chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-read-wr-a0da5-nd-views-the-branch-manager-chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="read-only: logs in via username/password, resolves to read-only, and views the tag manager" classname="w28a731-flat-login.spec.ts" time="1.854">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-read-on-12a8e-y-and-views-the-tag-manager-chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-read-on-12a8e-y-and-views-the-tag-manager-chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="read-only: a write is denied 403, yet read views still work (never blank)" classname="w28a731-flat-login.spec.ts" time="1.605">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-read-on-cc9dd-ews-still-work-never-blank--chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-read-on-cc9dd-ews-still-work-never-blank--chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="read-write: the same write is NOT the 403 RBAC denial (privilege ordering)" classname="w28a731-flat-login.spec.ts" time="1.565">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/w28a731-flat-login-read-wr-29658--denial-privilege-ordering--chromium/test-finished-1.png]]
+
+[[ATTACHMENT|test-results/w28a731-flat-login-read-wr-29658--denial-privilege-ordering--chromium/trace.zip]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>

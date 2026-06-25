@@ -1,0 +1,5 @@
+=== LIVE read-only 403 on REAL admin write routes (§54 non-bypass) ===
+[POST /api/v1/admin/profiles/w28a731test] read-only=403  read-write=403  admin=200  anon=401   RO-denied-OK
+[POST /api/v1/admin/api-keys] read-only=403  read-write=403  admin=200  anon=401   RO-denied-OK
+[DELETE /api/v1/admin/users/2] read-only=403  read-write=403  admin=404  anon=401   RO-denied-OK
+[POST /api/v1/admin/roles] read-only=403  read-write=403  admin=200  anon=401   RO-denied-OK

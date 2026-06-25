@@ -1,0 +1,50 @@
+# PS-97 v1.1 §1.1.5 GitHub-boundary variant; use via `pytest --env tests/env-IT-github`
+# for IT1.16 GitHub smoke. Derived from tests/env-IT with IT1_16_REMOTE_HOST swapped
+# to github.com and GIT_MCP_REMOTE_REPO pointing at the GitHub boundary fixture.
+# Integration test settings (runtime matrix: local server)
+TEST_ENV_TIER=IT
+TEST_RUNTIME_MODE=local-server
+TEST_USE_EXTERNAL_RUNTIME=false
+TEST_BIND_HOST=127.0.0.1
+TEST_API_BASE_URL=http://127.0.0.1:19031
+TEST_WEB_BASE_URL=http://127.0.0.1:19032
+TEST_MCP_BASE_URL=http://127.0.0.1:19033
+TEST_A2A_BASE_URL=http://127.0.0.1:19034
+# PS-97 v1.1 §1.1.5 boundary-fixture pattern (GitHub boundary variant).
+IT1_16_REMOTE_HOST=github.com
+GIT_MCP_REMOTE_REPO=https://github.com/cloud-dog-ai/git-test-project-fixture.git
+GIT_MCP_REMOTE_REPOS=https://github.com/cloud-dog-ai/git-test-project-fixture.git,https://gitea.cloud-dog.net/test-fixtures/git-test-project.git
+GIT_MCP_ALLOWED_REMOTE_PREFIXES=https://gitea.cloud-dog.net/test-fixtures/,https://github.com/cloud-dog-ai/,https://git.cloud-dog.net/playgroup/
+GIT_MCP_REMOTE_BRANCH_PREFIX=test/git-mcp-
+GIT_MCP_REMOTE_OPEN_TIMEOUT_SECONDS=600
+GIT_MCP_REMOTE_OP_TIMEOUT_SECONDS=180
+GIT_MCP_SEED_KEY_FILE=./working/it/seed_api_key.txt
+CLOUD_DOG__RUNTIME__SEED_KEY_FILE=./working/it/seed_api_key.txt
+CLOUD_DOG__RUNTIME__MODE=local-server
+CLOUD_DOG__AUTH__MODE=api_key+jwt
+CLOUD_DOG__AUTH__JWT__ISSUER=cloud-dog-git-mcp
+CLOUD_DOG__AUTH__JWT__AUDIENCE=git-mcp-server
+CLOUD_DOG__AUTH__JWT__SECRET=${vault.dev.idp.keycloak.admin_password}
+CLOUD_DOG__STORAGE__GITLAB__URL=${vault.dev.storage.gitlab.url}
+CLOUD_DOG__STORAGE__GITLAB__DEVELOPER_TOKEN=${vault.dev.storage.gitlab.developer_token}
+CLOUD_DOG__STORAGE__GITLAB__MAINTAINER_TOKEN=${vault.dev.storage.gitlab.maintainer_token}
+GIT_MCP_CONTAINER_KEY_PATH=/app/working/it/seed_api_key.txt
+CLOUD_DOG__API_SERVER__HOST=127.0.0.1
+CLOUD_DOG__API_SERVER__CLIENT_HOST=127.0.0.1
+CLOUD_DOG__API_SERVER__PORT=19031
+CLOUD_DOG__WEB_SERVER__HOST=127.0.0.1
+CLOUD_DOG__WEB_SERVER__PORT=19032
+CLOUD_DOG__MCP_SERVER__HOST=127.0.0.1
+CLOUD_DOG__MCP_SERVER__PORT=19033
+CLOUD_DOG__A2A_SERVER__HOST=127.0.0.1
+CLOUD_DOG__A2A_SERVER__PORT=19034
+TEST_API_BASE_PATH=/api/v1
+TEST_MCP_BASE_PATH=/mcp
+TEST_WEB_BASE_PATH=/
+TEST_A2A_BASE_PATH=/a2a
+
+TEST_A2A_API_KEY=12345678
+CLOUD_DOG__RUNTIME__A2A_TEST_API_KEY=12345678
+
+CLOUD_DOG__DB__DIALECT=sqlite
+CLOUD_DOG__DB__DATABASE=./data/git_mcp.db

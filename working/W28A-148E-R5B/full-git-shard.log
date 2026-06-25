@@ -1,0 +1,376 @@
+
+> @cloud-dog/app-git-mcp@0.0.1 e2e
+> playwright test --config=playwright.preprod.config.ts --workers=1 --reporter=list
+
+
+Running 67 tests using 1 worker
+
+(node:4143832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4143832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › tests/a11y.spec.ts:20:1 › @a11y dashboard and mcp console have no wcag2aa violations (5.1s)
+  ✓   2 [chromium] › tests/e2e/admin-config-crud.spec.ts:17:1 › manage users, groups, and api keys from admin pages (3.3s)
+  ✓   3 [chromium] › tests/e2e/api-key-metadata.spec.ts:17:1 › managed api keys expose metadata edit controls (2.6s)
+  ✓   4 [chromium] › tests/e2e/audit-log-correlation.spec.ts:19:1 › operation history preserves request and correlation IDs (2.6s)
+  ✓   5 [chromium] › tests/e2e/branch-edit-commit-push.spec.ts:19:1 › open, branch, edit, commit and push (4.7s)
+  ✓   6 [chromium] › tests/e2e/conflict-resolution.spec.ts:19:1 › create conflict, list and resolve manually (7.5s)
+  ✓   7 [chromium] › tests/e2e/forensic-login-smoke.spec.ts:22:1 › forensic local cookie login reaches populated dashboard (1.1s)
+  ✓   8 [chromium] › tests/e2e/forensic-w28a-448.spec.ts:131:1 › W28A-448 forensic WebUI flow (30.8s)
+  ✓   9 [chromium] › tests/e2e/health-and-auth.spec.ts:19:1 › health dashboard and sign-out (1.1s)
+  ✓  10 [chromium] › tests/e2e/mcp-catalogue-and-call.spec.ts:19:1 › catalogue refresh and api+mcp tool execution (3.0s)
+  ✓  11 [chromium] › tests/e2e/profile-crud.spec.ts:19:1 › create, update and delete profile (1.8s)
+  ✓  12 [chromium] › tests/e2e/rbac-bindings.spec.ts:19:1 › bind and unbind role (1.8s)
+  ✓  13 [chromium] › tests/e2e/rbac-enforcement.spec.ts:17:1 › restricted API key cannot perform admin writes (3.7s)
+  ✓  14 [chromium] › tests/e2e/real-functional-w28a-481.spec.ts:56:1 › W28A-481 real repository WebUI flow (9.2s)
+  ✓  15 [chromium] › tests/e2e/recovery-artifacts.spec.ts:19:1 › stash save/list/pop workflow (3.4s)
+  ✓  16 [chromium] › tests/e2e/recovery-page-ui.spec.ts:17:1 › recovery page exposes non-destructive actions with on-screen status (2.6s)
+  ✓  17 [chromium] › tests/e2e/tag-readonly-browse.spec.ts:19:1 › tag ref enters readonly mode and blocks file writes (3.2s)
+  ✓  18 [chromium] › tests/e2e/ui-review2.spec.ts:23:1 › T1 dashboard heading and health widgets (1.7s)
+  ✓  19 [chromium] › tests/e2e/ui-review2.spec.ts:33:1 › T2 dashboard metric cards (1.7s)
+  ✓  20 [chromium] › tests/e2e/ui-review2.spec.ts:43:1 › T3 dashboard quick actions (1.7s)
+  ✓  21 [chromium] › tests/e2e/ui-review2.spec.ts:51:1 › T4 dashboard resource metrics render without unknown placeholders (2.1s)
+  ✓  22 [chromium] › tests/e2e/ui-review2.spec.ts:58:1 › T5 profiles data table controls (1.7s)
+  ✓  23 [chromium] › tests/e2e/ui-review2.spec.ts:66:1 › T6 profiles entity dialog (1.7s)
+  ✓  24 [chromium] › tests/e2e/ui-review2.spec.ts:75:1 › T7 profiles column picker persists (2.6s)
+  ✓  25 [chromium] › tests/e2e/ui-review2.spec.ts:88:1 › T8 profiles bulk delete (2.1s)
+  ✓  26 [chromium] › tests/e2e/ui-review2.spec.ts:98:1 › T9 admin navigation grouping (1.0s)
+  ✓  27 [chromium] › tests/e2e/ui-review2.spec.ts:106:1 › T10 users entity dialog (1.7s)
+  ✓  28 [chromium] › tests/e2e/ui-review2.spec.ts:115:1 › T11 groups entity dialog (1.8s)
+  ✓  29 [chromium] › tests/e2e/ui-review2.spec.ts:124:1 › T12 api key entity dialog (1.8s)
+  ✓  30 [chromium] › tests/e2e/ui-review2.spec.ts:133:1 › T13 api key relative timestamps (2.6s)
+  ✓  31 [chromium] › tests/e2e/ui-review2.spec.ts:159:1 › T14 rbac entity dialog (1.7s)
+  ✓  32 [chromium] › tests/e2e/ui-review2.spec.ts:168:1 › T15 workspace diagnostics structured summary (1.6s)
+  ✓  33 [chromium] › tests/e2e/ui-review2.spec.ts:176:1 › T16 workspace history table controls (1.7s)
+  ✓  34 [chromium] › tests/e2e/ui-review2.spec.ts:184:1 › T17 recovery resource metrics and audit panel (2.5s)
+  ✓  35 [chromium] › tests/e2e/ui-review2.spec.ts:191:1 › T18 recovery formatted result sections (1.7s)
+  ✘  36 [chromium] › tests/e2e/ui-review2.spec.ts:198:1 › T19 MCP tool browser search (23.2s)
+(node:98844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:98844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  37 [chromium] › tests/e2e/ui-review2.spec.ts:205:1 › T20 MCP execution panel (23.4s)
+(node:128073) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:128073) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  38 [chromium] › tests/e2e/ui-review2.spec.ts:212:1 › T21 API docs panel and links (23.5s)
+(node:154231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:154231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  39 [chromium] › tests/e2e/ui-review2.spec.ts:220:1 › T22 jobs page (1.8s)
+  ✓  40 [chromium] › tests/e2e/ui-review2.spec.ts:227:1 › T23 settings panel (1.8s)
+  ✓  41 [chromium] › tests/e2e/ui-review2.spec.ts:234:1 › T24 session timeout is absent on login (838ms)
+  ✓  42 [chromium] › tests/e2e/ui-review2.spec.ts:240:1 › T25 session timeout countdown appears when authenticated (1.9s)
+  ✓  43 [chromium] › tests/e2e/w28a119d-rendered-assertions.spec.ts:191:1 › W28A-119D repository browser renders file metadata, affordances, empty state, and PS-94 traceability (4.1s)
+  ✓  44 [chromium] › tests/e2e/w28a119d-rendered-assertions.spec.ts:220:1 › W28A-119D diff viewer renders deterministic summary, unified, split, and raw diff content (2.0s)
+  ✘  45 [chromium] › tests/e2e/w28a119d-rendered-assertions.spec.ts:244:1 › W28A-119D API docs render MCP and A2A discovery surfaces in the browser (23.2s)
+(node:190802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:190802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  46 [chromium] › tests/e2e/w28a869-webui-pages.spec.ts:23:1 › w28a869 new git workflow pages render their primary controls (5.8s)
+  ✓  47 [chromium] › tests/e2e/w28a869-webui-pages.spec.ts:47:1 › w28a869 route aliases redirect to canonical workflow pages (2.6s)
+  ✓  48 [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:39:1 › sections b-f api workflow covers workspace lifecycle, file operations, search, status, log, diff, and pull (7.1s)
+  ✓  49 [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:233:1 › sections l-n web ui covers repository browser, commit log viewer, and diff viewer (9.1s)
+  ✓  50 [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:325:1 › sections o-p web ui covers branch management and merge conflict resolution (10.5s)
+  ✘  51 [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:415:1 › sections q-r web ui covers tag management and stash management (36.7s)
+(node:269714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:269714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  52 [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:482:1 › section s audit log shows request ids for generated api operations (4.9s)
+  ✓  53 [chromium] › tests/w28a458/ui-adopt.spec.ts:56:1 › T1 login and session timeout wrapper active (1.8s)
+  ✓  54 [chromium] › tests/w28a458/ui-adopt.spec.ts:63:1 › T2 dashboard shell elements (1.4s)
+  ✓  55 [chromium] › tests/w28a458/ui-adopt.spec.ts:71:1 › T3 logo navigates to dashboard (2.1s)
+  ✓  56 [chromium] › tests/w28a458/ui-adopt.spec.ts:79:1 › T4 profiles datatable (1.3s)
+  ✓  57 [chromium] › tests/w28a458/ui-adopt.spec.ts:88:1 › T5 profile entity form add and edit (1.8s)
+  ✓  58 [chromium] › tests/w28a458/ui-adopt.spec.ts:110:1 › T6 users datatable and entity form (2.2s)
+  ✓  59 [chromium] › tests/w28a458/ui-adopt.spec.ts:130:1 › T7 groups datatable and member management (2.1s)
+  ✓  60 [chromium] › tests/w28a458/ui-adopt.spec.ts:153:1 › T8 api keys datatable (1.7s)
+  ✓  61 [chromium] › tests/w28a458/ui-adopt.spec.ts:170:1 › T9 rbac bindings datatable (1.6s)
+  ✓  62 [chromium] › tests/w28a458/ui-adopt.spec.ts:185:1 › T10 mcp console (1.7s)
+  ✘  63 [chromium] › tests/w28a458/ui-adopt.spec.ts:200:1 › T11 a2a console (2.0s)
+  -  64 [chromium] › tests/w28a458/ui-adopt.spec.ts:211:1 › T12 settings panel
+  -  65 [chromium] › tests/w28a458/ui-adopt.spec.ts:220:1 › T13 audit dashboard
+  -  66 [chromium] › tests/w28a458/ui-adopt.spec.ts:231:1 › T14 about dialog
+  -  67 [chromium] › tests/w28a458/ui-adopt.spec.ts:240:1 › T15 logout
+
+
+  1) [chromium] › tests/e2e/ui-review2.spec.ts:198:1 › T19 MCP tool browser search ─────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /^Tool Browser$/i })
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /^Tool Browser$/i })[22m
+
+
+      199 |   await signIn();
+      200 |   await page.goto("/mcp-console");
+    > 201 |   await expect(page.getByRole("heading", { name: /^Tool Browser$/i })).toBeVisible();
+          |                                                                        ^
+      202 |   await expect(page.getByRole("textbox", { name: /^Search tools$/i })).toBeVisible();
+      203 | });
+      204 |
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/e2e/ui-review2.spec.ts:201:72
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T19-MCP-tool-browser-search-chromium/attachments/w28a-timeout-snapshot-00d0fb77ad4d5b84623c1bf8b250fb13cce1437a.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T19-MCP-tool-browser-search-chromium/attachments/w28a-timeout-context-d6034aeceeb5fcaa90db7457eb89e47b199bd00a.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T19-MCP-tool-browser-search-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T19-MCP-tool-browser-search-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/e2e-ui-review2-T19-MCP-tool-browser-search-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/e2e/ui-review2.spec.ts:205:1 › T20 MCP execution panel ─────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /^Tool execution$/i })
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /^Tool execution$/i })[22m
+
+
+      206 |   await signIn();
+      207 |   await page.goto("/mcp-console");
+    > 208 |   await expect(page.getByRole("heading", { name: /^Tool execution$/i })).toBeVisible();
+          |                                                                          ^
+      209 |   await expect(page.getByRole("textbox", { name: /^Arguments JSON$/i })).toBeVisible();
+      210 | });
+      211 |
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/e2e/ui-review2.spec.ts:208:74
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T20-MCP-execution-panel-chromium/attachments/w28a-timeout-snapshot-d263b715800fc2ae2c09931c6ee0954b1160a069.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T20-MCP-execution-panel-chromium/attachments/w28a-timeout-context-034e2049e1eebb1181dbf6ba1999dc70c638df49.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T20-MCP-execution-panel-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T20-MCP-execution-panel-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/e2e-ui-review2-T20-MCP-execution-panel-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/e2e/ui-review2.spec.ts:212:1 › T21 API docs panel and links ────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /^API Docs$/i })
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /^API Docs$/i })[22m
+
+
+      213 |   await signIn();
+      214 |   await page.goto("/api-docs");
+    > 215 |   await expect(page.getByRole("heading", { name: /^API Docs$/i })).toBeVisible();
+          |                                                                    ^
+      216 |   await expect(page.locator(".swagger-ui")).toBeVisible({ timeout: 15_000 });
+      217 |   await expect(page.getByRole("link", { name: /^OpenAPI JSON$/i }).first()).toBeVisible();
+      218 | });
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/e2e/ui-review2.spec.ts:215:68
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T21-API-docs-panel-and-links-chromium/attachments/w28a-timeout-snapshot-93c57c73d78036feed2e6259439b374715fead99.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T21-API-docs-panel-and-links-chromium/attachments/w28a-timeout-context-dcfc5f717f4af70c1f168e7c8640b590f79f0790.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T21-API-docs-panel-and-links-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/e2e-ui-review2-T21-API-docs-panel-and-links-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/e2e-ui-review2-T21-API-docs-panel-and-links-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/e2e/w28a119d-rendered-assertions.spec.ts:244:1 › W28A-119D API docs render MCP and A2A discovery surfaces in the browser 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /^API Docs$/ })
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /^API Docs$/ })[22m
+
+
+      246 |   await page.goto("/api-docs");
+      247 |
+    > 248 |   await expect(page.getByRole("heading", { name: /^API Docs$/ })).toBeVisible();
+          |                                                                   ^
+      249 |   await expect(page.getByRole("link", { name: /^OpenAPI JSON$/ }).first()).toBeVisible();
+      250 |   await expect(page.getByRole("link", { name: /^MCP Tools$/ }).first()).toBeVisible();
+      251 |   await expect(page.getByRole("link", { name: /^A2A Agent Card$/ }).first()).toBeVisible();
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/e2e/w28a119d-rendered-assertions.spec.ts:248:67
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/e2e-w28a119d-rendered-asse-1e649-ery-surfaces-in-the-browser-chromium/attachments/w28a-timeout-snapshot-4ce9d3065dd4dd2139305a785cacead3da4a3a1f.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/e2e-w28a119d-rendered-asse-1e649-ery-surfaces-in-the-browser-chromium/attachments/w28a-timeout-context-ee07aeab42f4a73c5384a1c36f6f486a82645306.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/e2e-w28a119d-rendered-asse-1e649-ery-surfaces-in-the-browser-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/e2e-w28a119d-rendered-asse-1e649-ery-surfaces-in-the-browser-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/e2e-w28a119d-rendered-asse-1e649-ery-surfaces-in-the-browser-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:415:1 › sections q-r web ui covers tag management and stash management 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByRole('status').last()
+    Expected pattern: [32m/pushed tag w28a870-tag-1778529256858/i[39m
+    Received string:  [31m"Created tag w28a870-tag-1778529256858."[39m
+    Timeout: 30000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 30000ms[22m
+    [2m  - waiting for getByRole('status').last()[22m
+    [2m    33 × locator resolved to <p role="status" class="text-sm text-foreground/80">Created tag w28a870-tag-1778529256858.</p>[22m
+    [2m       - unexpected value "Created tag w28a870-tag-1778529256858."[22m
+
+
+      430 |   await expect(tagRow).toBeVisible({ timeout: 30_000 });
+      431 |   await tagRow.getByRole("button", { name: /^push$/i }).click();
+    > 432 |   await expect(page.getByRole("status").last()).toContainText(new RegExp(`pushed tag ${escapeRegExp(tagName)}`, "i"), { timeout: 30_000 });
+          |                                                 ^
+      433 |   await tagRow.getByRole("button", { name: /^delete$/i }).click();
+      434 |   await expect(tagRow).toHaveCount(0);
+      435 |
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:432:49
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/e2e-w28a870-git-mcp-e2e-te-1ebfe-gement-and-stash-management-chromium/attachments/w28a-timeout-snapshot-d449f6c586bb5fe9b6996218177634f3e4dc5ea0.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/e2e-w28a870-git-mcp-e2e-te-1ebfe-gement-and-stash-management-chromium/attachments/w28a-timeout-context-83aff527ba6557c85380f3534f2c30037b2de464.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/e2e-w28a870-git-mcp-e2e-te-1ebfe-gement-and-stash-management-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/e2e-w28a870-git-mcp-e2e-te-1ebfe-gement-and-stash-management-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/e2e-w28a870-git-mcp-e2e-te-1ebfe-gement-and-stash-management-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium] › tests/w28a458/ui-adopt.spec.ts:200:1 › T11 a2a console ───────────────────────────
+
+    Error: browser console errors: Failed to load resource: the server responded with a status of 404 ()
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   "Failed to load resource: the server responded with a status of 404 ()",[39m
+    [31m+ ][39m
+
+      51 | test.afterEach(async ({ page }) => {
+      52 |   const errors = (page as typeof page & { __errors?: string[] }).__errors ?? [];
+    > 53 |   expect.soft(errors, `browser console errors: ${errors.join(" | ")}`).toEqual([]);
+         |                                                                        ^
+      54 | });
+      55 |
+      56 | test("T1 login and session timeout wrapper active", async ({ page, signIn }) => {
+        at /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp/tests/w28a458/ui-adopt.spec.ts:53:72
+
+    attachment #1: w28a-timeout-snapshot (image/png) ───────────────────────────────────────────────
+    test-results/preprod/w28a458-ui-adopt-T11-a2a-console-chromium/attachments/w28a-timeout-snapshot-a5aa247bfa4c310d014fe13272841a8babfdcfe9.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: w28a-timeout-context (application/json) ─────────────────────────────────────────
+    test-results/preprod/w28a458-ui-adopt-T11-a2a-console-chromium/attachments/w28a-timeout-context-eaa60e0d0e3d0931e1225b065f8aef92d7a45889.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/preprod/w28a458-ui-adopt-T11-a2a-console-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/preprod/w28a458-ui-adopt-T11-a2a-console-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/preprod/w28a458-ui-adopt-T11-a2a-console-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6 failed
+    [chromium] › tests/e2e/ui-review2.spec.ts:198:1 › T19 MCP tool browser search ──────────────────
+    [chromium] › tests/e2e/ui-review2.spec.ts:205:1 › T20 MCP execution panel ──────────────────────
+    [chromium] › tests/e2e/ui-review2.spec.ts:212:1 › T21 API docs panel and links ─────────────────
+    [chromium] › tests/e2e/w28a119d-rendered-assertions.spec.ts:244:1 › W28A-119D API docs render MCP and A2A discovery surfaces in the browser 
+    [chromium] › tests/e2e/w28a870-git-mcp-e2e-testing.spec.ts:415:1 › sections q-r web ui covers tag management and stash management 
+    [chromium] › tests/w28a458/ui-adopt.spec.ts:200:1 › T11 a2a console ────────────────────────────
+  4 did not run
+  57 passed (5.9m)
+npm error Lifecycle script `e2e` failed with error:
+npm error code 1
+npm error path /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp
+npm error workspace @cloud-dog/app-git-mcp@0.0.1
+npm error location /opt/iac/Development/cloud-dog-ai/cloud-dog-ai-ui-monorepo/apps/git-mcp
+npm error command failed
+npm error command sh -c playwright test --config=playwright.preprod.config.ts --workers=1 --reporter=list

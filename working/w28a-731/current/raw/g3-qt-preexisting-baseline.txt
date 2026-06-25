@@ -1,0 +1,8 @@
+W28A-731-R5 — QT pre-existing baseline (PROVEN identical on origin/main; NOT introduced by this lane)
+Verification command: git stash push -- src/git_mcp_server/web_server.py ; pytest tests/quality ; git stash pop
+  clean origin/main 3ecb82d : 5 failed, 53 passed
+  with this lane's change   : 5 failed, 53 passed   (identical set — zero QT regression from this lane)
+The 5 pre-existing QT items are unrelated to the username/password login change (this lane touched only
+web_server.py + defaults.yaml). They flag git_tools/admin/profile_store.py + workspaces/gc.py doc-comments,
+test-traceability metadata, and a yaml.safe_load lint — a separate repo-baseline matter, evidenced by the
+stash-compare command above. bespoke-scan (test_qt27_bespoke_code_scan): PASS. G1 os.environ grep: 0.

@@ -1,0 +1,9 @@
+=== G7 LIVE FUNCTIONAL (gitmcpserver0, deployed digest 30288f97) ===
+[anon /auth/me] {"user":null}
+[LIVE login admin] /auth/login=200 roles=['admin']
+[LIVE login read-write] /auth/login=200 roles=['read-write']
+[LIVE login read-only] /auth/login=200 roles=['read-only']
+--- LIVE read-only write-gate (403 every surface) + anon (401) ---
+[/api/v1/repositories] read-only=404(want403) read-write=404(want!403) anon=401(want401)
+[/app/v1/repositories] read-only=404(want403) read-write=404(want!403) anon=401(want401)
+[LIVE api_key body now rejected as before] 400(want400 - backend unchanged)

@@ -1,0 +1,60 @@
+# Integration test settings (runtime matrix: local server)
+TEST_ENV_TIER=IT
+TEST_RUNTIME_MODE=local-server
+TEST_USE_EXTERNAL_RUNTIME=false
+TEST_BIND_HOST=127.0.0.1
+TEST_API_BASE_URL=http://127.0.0.1:19031
+TEST_WEB_BASE_URL=http://127.0.0.1:19032
+TEST_MCP_BASE_URL=http://127.0.0.1:19033
+TEST_A2A_BASE_URL=http://127.0.0.1:19034
+# PS-97 v1.1 §1.1.5 boundary-fixture pattern (IT1.16 + IT1.9/IT1.10/IT1.14):
+# Primary remote is the Gitea-boundary test-fixture repo (public, closed-loop IT tier).
+# Legacy dev-fallback retained in GIT_MCP_REMOTE_REPOS for environments that still
+# rely on the Vault-gitlab-credentials path for `git.cloud-dog.net/playgroup/`.
+IT1_16_REMOTE_HOST=gitea.cloud-dog.net
+GIT_MCP_REMOTE_REPO=https://gitea.cloud-dog.net/test-fixtures/git-test-project.git
+GIT_MCP_REMOTE_REPOS=https://gitea.cloud-dog.net/test-fixtures/git-test-project.git,https://git.cloud-dog.net/playgroup/test-project.git
+GIT_MCP_ALLOWED_REMOTE_PREFIXES=https://gitea.cloud-dog.net/test-fixtures/,https://github.com/cloud-dog-ai/,https://git.cloud-dog.net/playgroup/
+GIT_MCP_REMOTE_BRANCH_PREFIX=test/git-mcp-
+GIT_MCP_REMOTE_OPEN_TIMEOUT_SECONDS=600
+GIT_MCP_REMOTE_OP_TIMEOUT_SECONDS=180
+GIT_MCP_SEED_KEY_FILE=./working/it/seed_api_key.txt
+CLOUD_DOG__RUNTIME__SEED_KEY_FILE=./working/it/seed_api_key.txt
+CLOUD_DOG__RUNTIME__MODE=local-server
+CLOUD_DOG__AUTH__MODE=api_key+jwt
+CLOUD_DOG__AUTH__JWT__ISSUER=cloud-dog-git-mcp
+CLOUD_DOG__AUTH__JWT__AUDIENCE=git-mcp-server
+TEST_JWT_SECRET=git-mcp-it-jwt-secret-0123456789abcdef0123456789
+TEST_OPTIONAL_GITLAB_TOKEN=
+CLOUD_DOG__AUTH__JWT__SECRET=${TEST_JWT_SECRET}
+CLOUD_DOG__STORAGE__GITLAB__URL=
+CLOUD_DOG__STORAGE__GITLAB__DEVELOPER_TOKEN=${TEST_OPTIONAL_GITLAB_TOKEN}
+CLOUD_DOG__STORAGE__GITLAB__MAINTAINER_TOKEN=${TEST_OPTIONAL_GITLAB_TOKEN}
+GIT_MCP_CONTAINER_KEY_PATH=/app/working/it/seed_api_key.txt
+CLOUD_DOG__API_SERVER__HOST=127.0.0.1
+CLOUD_DOG__API_SERVER__CLIENT_HOST=127.0.0.1
+CLOUD_DOG__API_SERVER__PORT=19031
+CLOUD_DOG__WEB_SERVER__HOST=127.0.0.1
+CLOUD_DOG__WEB_SERVER__PORT=19032
+CLOUD_DOG__MCP_SERVER__HOST=127.0.0.1
+CLOUD_DOG__MCP_SERVER__PORT=19033
+CLOUD_DOG__A2A_SERVER__HOST=127.0.0.1
+CLOUD_DOG__A2A_SERVER__PORT=19034
+TEST_API_BASE_PATH=/api/v1
+TEST_MCP_BASE_PATH=/mcp
+TEST_WEB_BASE_PATH=/
+TEST_A2A_BASE_PATH=/a2a
+
+TEST_A2A_API_KEY=12345678
+CLOUD_DOG__RUNTIME__A2A_TEST_API_KEY=12345678
+
+# W28A-731-R5: a fixed, shared configured api-key (internal test value) so ALL four
+# servers (api/web/mcp/a2a) register the SAME admin key (owner "configured-api-key" ->
+# admin). Without it each process generates its own runtime seed key, so a key valid on
+# the API server was rejected by the MCP server (cross-tier mismatch) — the root cause of
+# the IT MCP-tool 401s. The api_key fixture probes this first and returns it.
+CLOUD_DOG__GIT__API_KEY=it-git-mcp-731-shared-key
+
+CLOUD_DOG__DB__DIALECT=sqlite
+CLOUD_DOG__DB__DATABASE=./data/git_mcp.db
+CLOUD_DOG__LOG__INTEGRITY__ENABLED=false

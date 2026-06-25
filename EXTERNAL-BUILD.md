@@ -25,8 +25,8 @@ The cloud-dog platform packages (`cloud-dog-config`, `cloud-dog-logging`,
 `cloud-dog-api-kit`, `cloud-dog-idam`, `cloud-dog-db`, `cloud-dog-jobs`) must be
 resolvable from your chosen public index. The default index is public PyPI
 (`https://pypi.org/simple/`). If a platform package is not yet on your index,
-install it from its public Gitea-mirrored source (`pip install -e .` against
-`gitea.com/cloud-dog-ai/<pkg>`) before building — do NOT add a second index
+install it from its public GitHub-mirrored source (`pip install -e .` against
+`github.com/cloud-dog-ai/<pkg>`) before building — do NOT add a second index
 (`--extra-index-url` is forbidden by the isolation standard, PS-97 v1.1 §3.3 / §4).
 
 ## 2. Docker path (recommended)
@@ -35,7 +35,7 @@ install it from its public Gitea-mirrored source (`pip install -e .` against
 # 1. Build the public image (uses Dockerfile.public; default index = public PyPI)
 ./docker-build.sh latest --variant public
 
-# To point at a different public index (e.g. Gitea Packages or a public mirror):
+# To point at a different public index (e.g. GitHub Packages or a public mirror):
 PUBLIC_PYPI_INDEX_URL=https://pypi.org/simple/ ./docker-build.sh latest --variant public
 ```
 
@@ -103,7 +103,7 @@ OS / Docker / Python versions (`docker --version`, `python3 --version`).
 
 - **A platform package fails to resolve from the public index** — STOP. Do not add
   `--extra-index-url`. Publish the missing package to your index, or `pip install -e .`
-  it from its public Gitea-mirrored source, then re-run. (The cloud-dog platform
+  it from its public GitHub-mirrored source, then re-run. (The cloud-dog platform
   packages are not yet on public PyPI; expect this until the publication chain
   mirrors them — that is a producer-side step, not a builder defect.)
 - **TLS / CA errors behind a corporate proxy** — set `HTTP_PROXY` / `HTTPS_PROXY` and
@@ -114,5 +114,5 @@ OS / Docker / Python versions (`docker --version`, `python3 --version`).
 - **Integration tests bind to a git remote** — the IT1.16 remote-fetch test is
   parameterised per PS-97 v1.1 §1.1.5. Set `GIT_MCP_REMOTE_REPO` and
   `IT1_16_REMOTE_HOST` to a public fixture
-  (e.g. `gitea.com/cloud-dog-ai/git-test-project-fixture.git` /
-  `gitea.com`) for the Gitea boundary.
+  (e.g. `github.com/cloud-dog-ai/git-test-project-fixture.git` /
+  `github.com`) for the GitHub boundary.

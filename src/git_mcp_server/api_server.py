@@ -15,8 +15,10 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from ipaddress import IPv4Address
+from pathlib import Path
 import time
 from typing import Any, cast
 from uuid import uuid4
@@ -33,10 +35,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from git_mcp_server.admin.endpoints import build_admin_router
 from git_mcp_server.auth.middleware import AuthRuntime, build_auth_runtime, install_auth_middleware
 from git_mcp_server.http_client import build_origin
+from git_mcp_server.flat_demo_keys import (
+    FLAT_DEMO_OWNERS,
+    register_flat_demo_keys,
+    write_flat_demo_keys,
+)
+from git_mcp_server.web_flat_roles import FLAT_TO_TOOL_ROLE, normalise_flat_role
 from git_mcp_server.jobs.endpoints import build_jobs_router
 from git_mcp_server.logging import configure_service_logging
 from git_mcp_server.ui_endpoints import RuntimeSettingsStore, build_ui_support_router
+from git_mcp_server.workspace_enum_endpoints import build_workspace_enum_router
+from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
+from git_tools.admin.profile_store import ProfileStore
 from git_tools.admin.runtime import AdminRuntime
+from git_tools.admin.roles_service import RolesService
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.config.models import LEGACY_API_BASE_PATH
 from git_tools.db import database_health, initialise_database, shutdown_database
@@ -45,6 +57,7 @@ from git_tools.jobs.runtime import JobsRuntime
 from cloud_dog_idam import RBACEngine
 from git_tools.security.rbac import AccessDeniedError, require_tool_access
 from git_tools.tools.registry import ToolRegistry
+from git_tools.workspaces.gc import workspace_gc_daemon
 from git_tools.workspaces.manager import WorkspaceManager
 
 _STRICT_LOCAL_RUNTIME_MODES = {"local-server", "local-docker"}
@@ -227,18 +240,34 @@ def _roles_from_request(
                 if capabilities.intersection({"admin.profile", "admin.identity"}):
                     return {"admin"}
 
+    # Thread-a flat WebUI login (W28A-731): a cookie web session reaches the API
+    # tier directly — the reverse proxy routes /api/v1 straight to the API server,
+    # bypassing the web proxy — so the request carries only its flat role on
+    # request.state.web_session_user. Translate that flat role onto THIS service's
+    # tool-RBAC vocabulary (config.rbac.roles = admin/writer/reader) so read-only
+    # resolves to `reader` (view tools only; every write tool -> 403, never blank),
+    # read-write -> `writer`, and admin stays `admin`. Resolution stays on the ONE
+    # shared cloud_dog_idam RBACEngine + tool_role_map; no per-service RBAC fork.
+    # Checked before resolve_roles(actor) because the flat display-name actors are
+    # not seeded as idam role-bindings (only the session's flat-role claim is
+    # authoritative for a cookie principal).
+    web_user = getattr(request.state, "web_session_user", None)
+    if isinstance(web_user, dict):
+        raw_roles = web_user.get("roles")
+        if isinstance(raw_roles, list):
+            mapped: set[str] = set()
+            for item in raw_roles:
+                if str(item).strip():
+                    mapped.update(FLAT_TO_TOOL_ROLE.get(normalise_flat_role(item), ()))
+            if mapped:
+                return mapped
+
     if actor:
         return set(admin_runtime.resolve_roles(actor))
 
     enterprise_roles = getattr(request.state, "enterprise_roles", None)
     if isinstance(enterprise_roles, list):
         return {str(item).strip() for item in enterprise_roles if str(item).strip()}
-
-    web_user = getattr(request.state, "web_session_user", None)
-    if isinstance(web_user, dict):
-        raw_roles = web_user.get("roles")
-        if isinstance(raw_roles, list):
-            return {str(item).strip() for item in raw_roles if str(item).strip()}
 
     return set()
 
@@ -291,7 +320,6 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     api_base_path = config.api_server.base_path
     legacy_api_base_path = LEGACY_API_BASE_PATH
     a2a_base_path = config.a2a_server.base_path
-    mcp_base_path = config.mcp_server.base_path
     runtime_cfg = config.runtime
     configure_service_logging(raw_snapshot, service_name="git-mcp-server", server_id=config.runtime.server_id, surface="api")
 
@@ -338,15 +366,22 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         api_base_path=api_base_path,
         legacy_api_base_path=legacy_api_base_path,
         a2a_base_path=a2a_base_path,
-        extra_protected_prefixes=[mcp_base_path],
+        # GM6 (W28C-1705): /git-mcp was a vestigial protected prefix with no handler — it
+        # always-401'd. The MCP surface is /mcp (its own tier); drop the dead /git-mcp guard.
         web_session_url=web_session_url,
     )
     # W28A-529: Outermost audit middleware — captures auth failures (401/403)
     app.add_middleware(AuditMiddleware)
 
-    profile_store: dict[str, dict[str, Any]] = {
-        name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
-    }
+    # GM2 (W28C-1705 / 1603-unblocker): durable, cross-surface profile store backed by the
+    # git_profile_registry table on the persistent /app/data volume. Seeds backfill once from
+    # config.profiles; thereafter the DB is authoritative and survives container restart.
+    profile_store = ProfileStore(
+        db_runtime.session_manager,
+        seed_profiles={
+            name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
+        },
+    )
     user_store: dict[str, dict[str, Any]] = {}
     group_store: dict[str, dict[str, Any]] = {}
     role_bindings: dict[str, set[str]] = {
@@ -397,8 +432,57 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     # Grant admin role binding to the bootstrap admin user.
     role_bindings.setdefault("admin", set()).add("admin")
 
+    # W28A-731 flat-login (api_key 3-key model): seed three demo API keys — one
+    # per flat role — each owned by a user bound to its tool-RBAC role(s). The
+    # api-key sign-in (auth.mode=api_key) is git-mcp's login surface; signing in
+    # with each key resolves (API /whoami -> web /auth/me) to that flat role, and
+    # the API tier authorises every tool call from the same role binding (no fork):
+    #   admin       -> {admin}           (-> *)
+    #   read-write  -> {writer, reader}  (read + write + search)
+    #   read-only   -> {reader}          (view only; every write tool -> 403)
+    # The raw keys are written to a container-readable runtime path (NEVER
+    # committed — §9.2; the data dir is git-ignored) so the demo / Playwright smoke
+    # can read them. Keys are regenerated each start (like the seed key), so the
+    # smoke re-reads them after any rebuild/redeploy.
+    # Register the 3 deterministic flat demo keys + their role bindings (shared with
+    # the MCP tier so read-only -> 403 on EVERY transport), seed a user per role for
+    # the UI DataTable, and write the raw keys to a container-readable runtime path
+    # for the WebUI/Playwright demo. NEVER committed (§9.2; data/ + working/ ignored).
+    _flat_demo_keys = register_flat_demo_keys(
+        auth_runtime.api_key_manager, role_bindings, config.git.api_key
+    )
+    for _owner, _flat, _roles in FLAT_DEMO_OWNERS:
+        try:
+            admin_runtime.create_user(user_id=_owner, username=_owner, email=f"{_owner}@example.invalid")
+        except (ValueError, KeyError):
+            pass  # already exists
+    try:
+        _seed_file = config.runtime.seed_key_file.strip()
+        _keys_parent = (
+            Path(_seed_file).expanduser().parent
+            if _seed_file
+            else Path(config.workspace.base_dir).expanduser()
+        )
+        write_flat_demo_keys(_flat_demo_keys, _keys_parent / "flat_role_keys")
+    except OSError:
+        from cloud_dog_logging import get_logger
+
+        get_logger("git_mcp_server.api").warning(
+            "flat-role demo key files could not be written", exc_info=True
+        )
+
+    # W28A-876 (Gate 4b): SQL-backed roles service over the canonical
+    # cloud_dog_idam role store. Seed the baseline admin/user roles so the
+    # PS-71 §IW3A Roles page always has rows.
+    roles_service = RolesService(session_manager=db_runtime.session_manager)
+    roles_service.ensure_roles_seed()
+
     settings_store = RuntimeSettingsStore(config, raw_snapshot)
 
+    # GM3 (W28C-1705): per-tool-call typed audit. Reuse the app's already-configured audit
+    # sink (configure_logging=False) so each git tool call emits an AuditEvent tying the
+    # resolved principal -> operation -> outcome -> commit_sha.
+    audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
     tool_registry = ToolRegistry(
         workspace_manager,
         admin_runtime=admin_runtime,
@@ -407,6 +491,7 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         group_store=group_store,
         role_bindings=role_bindings,
         credential_store=credential_store,
+        audit_writer=audit_writer,
     )
     tool_role_map = config.rbac.roles
     tool_default_deny = config.rbac.default_deny
@@ -423,12 +508,42 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     )
     # PS-92 legacy compat: NOT configurable; see W28A-970c-V2
     app.include_router(
-        build_admin_router(admin_runtime, auth_runtime=auth_runtime, prefix=f"{api_base_path}/admin")
+        build_admin_router(
+            admin_runtime,
+            auth_runtime=auth_runtime,
+            prefix=f"{api_base_path}/admin",
+            roles_service=roles_service,
+            workspace_manager=workspace_manager,
+        )
     )
     app.include_router(
-        build_admin_router(admin_runtime, auth_runtime=auth_runtime, prefix=f"{legacy_api_base_path}/admin"),
+        build_admin_router(
+            admin_runtime,
+            auth_runtime=auth_runtime,
+            prefix=f"{legacy_api_base_path}/admin",
+            roles_service=roles_service,
+            workspace_manager=workspace_manager,
+        ),
         include_in_schema=False,
     )
+    # W28A-876: mount the canonical SHARED cloud_dog_idam idam_v1_router (resource-registry +
+    # rbac-bindings) at the SAME bases as the admin router (api_base_path + legacy_api_base_path)
+    # so the RBAC page resolves /v1/idam/v1/* and /api/v1/idam/v1/*. ONE estate-wide implementation.
+    try:
+        from cloud_dog_idam.api.fastapi.router import (
+            idam_v1_router as _idam_v1_router,
+            set_idam_v1_engine as _set_idam_v1_engine,
+        )
+
+        try:
+            _set_idam_v1_engine(getattr(auth_runtime, "engine", None))
+        except Exception:
+            pass
+        for _ipfx in {api_base_path, legacy_api_base_path}:
+            if _ipfx:
+                app.include_router(_idam_v1_router, prefix=_ipfx, include_in_schema=False)
+    except Exception:
+        pass
     app.include_router(
         build_jobs_router(jobs_runtime, auth_runtime=auth_runtime, prefix=f"{api_base_path}/jobs")
     )
@@ -460,6 +575,21 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         ),
         include_in_schema=False,
     )
+
+    # W28J-1308: dropdown-enumeration + owner-scoped workspace endpoints (canonical + legacy).
+    for _ws_prefix, _ws_in_schema in ((api_base_path, True), (legacy_api_base_path, False)):
+        app.include_router(
+            build_workspace_enum_router(
+                workspace_manager=workspace_manager,
+                auth_runtime=auth_runtime,
+                admin_runtime=admin_runtime,
+                profile_store=profile_store,
+                tool_role_map=tool_role_map,
+                tool_default_deny=tool_default_deny,
+                prefix=_ws_prefix,
+            ),
+            include_in_schema=_ws_in_schema,
+        )
 
     # Platform health endpoints via create_health_router().
     async def _db_probe() -> dict:
@@ -512,6 +642,7 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
                 actor_id=actor,
                 roles=_roles_from_request(request, actor, admin_runtime, auth_runtime),
                 capabilities=_capabilities_from_request(request, admin_runtime, auth_runtime),
+                correlation_id=getattr(request.state, "correlation_id", ""),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -522,6 +653,21 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return envelope(result=result, request=request)
+
+    async def whoami(request: Request) -> dict[str, Any]:
+        """Resolve the current principal's identity + effective tool-RBAC roles.
+
+        W28A-731 flat-login (api_key 3-key model): the API tier is the ONE place
+        that resolves an api_key / cookie / bearer principal to roles. The web
+        tier's ``/auth/me`` calls this to materialise the flat-role principal for
+        an api-key sign-in, instead of forking the resolution. The CompatAuth
+        middleware already gates this route, so only a valid principal reaches the
+        handler (an invalid/absent key -> 401, surfaced to the SPA as logged-out).
+        """
+        actor = _actor_from_request(request, auth_runtime, admin_runtime)
+        roles = sorted(_roles_from_request(request, actor, admin_runtime, auth_runtime))
+        capabilities = sorted(_capabilities_from_request(request, admin_runtime, auth_runtime))
+        return envelope(result={"actor": actor, "roles": roles, "capabilities": capabilities}, request=request)
 
     # PS-92 (W28A-970c-V2): /api/v1 is canonical (in-schema); /app/v1 is hardcoded compat (NOT in OpenAPI schema).
     for base_path, label, include_in_schema in (
@@ -550,6 +696,14 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
             methods=["GET"],
             tags=["tools"],
             name=f"list_tools_{label}",
+            include_in_schema=include_in_schema,
+        )
+        app.add_api_route(
+            f"{base_path}/whoami",
+            whoami,
+            methods=["GET"],
+            tags=["system"],
+            name=f"whoami_{label}",
             include_in_schema=include_in_schema,
         )
         app.add_api_route(
@@ -590,9 +744,14 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     @asynccontextmanager
     async def runtime_lifespan(inner_app: FastAPI):
         async with existing_lifespan(inner_app):
+            # GM4 (W28C-1705): background workspace GC + stuck-merge reaper + disk-pressure warn.
+            gc_task = asyncio.create_task(workspace_gc_daemon(workspace_manager))
             try:
                 yield
             finally:
+                gc_task.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await gc_task
                 shutdown_database()
 
     app.router.lifespan_context = runtime_lifespan

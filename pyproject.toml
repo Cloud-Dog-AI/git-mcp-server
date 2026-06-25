@@ -15,8 +15,8 @@ dependencies = [
     # Platform packages
     "cloud_dog_config>=0.3.2",
     "cloud_dog_logging>=0.3.3",
-    "cloud_dog_api_kit==0.12.4",
-    "cloud_dog_idam>=0.2.0",
+    "cloud_dog_api_kit==0.13.0",
+    "cloud_dog_idam>=0.5.2,<0.6",
     "cloud_dog_db>=0.1.0",
     "cloud_dog_jobs>=0.3.0",
     "cloud_dog_cache>=0.1.0",
@@ -82,7 +82,27 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-p no:cloud_dog_config --basetemp=working/pytest-tmp"
 markers = [
-    "integration: integration tests that require live network/server behaviour",
+    # Tier markers — PS-REQ-TEST-TRACE v1.0 §6
+    "QT: quality/compliance tests (static analysis, package checks, documentation)",
+    "UT: unit tests (fast, no network, no live service)",
+    "ST: system tests (service-level behaviour, may require a running instance)",
+    "IT: integration tests that require live network/server behaviour",
+    "AT: application tests (end-to-end, full-stack, Playwright WebUI)",
+    "integration: alias kept for backwards compatibility (maps to IT)",
+    # Surface markers — PS-REQ-TEST-TRACE v1.0 §6
+    "api: tests exercising the HTTP REST API surface",
+    "mcp: tests exercising the MCP tool surface",
+    "a2a: tests exercising the A2A skill surface",
+    "webui: tests exercising the browser WebUI surface (Playwright)",
+    "cli: tests exercising CLI entry-points",
+    "internal: tests of internal modules / helpers with no external surface",
+    # Qualifier markers
+    "negative: negative/error-path test (expects rejection/error)",
+    "probe: orphan test without a bound req() — retained pending operator REQ-binding",
+    "slow: test expected to take >30 s",
+    "llm: test that calls a live LLM (may be slow or costly)",
+    # Parametrised binding marker — req(*ids) — PS-REQ-TEST-TRACE v1.0 §6
+    "req: bind test to one or more requirement IDs, e.g. @pytest.mark.req('FR-001')",
 ]
 
 [tool.hatch.build]
@@ -121,4 +141,4 @@ only-include = [
 ]
 
 [project.urls]
-"Source" = "https://gitea.cloud-dog.net/Cloud-Dog-External/git-mcp-server"
+"Source" = "https://github.com/cloud-dog-ai/git-mcp-server"

@@ -1,0 +1,32 @@
+path	repo	reason	created_or_modified_by_lane	commit_hash
+docs/API.md	git-mcp-server	Thread-B API documentation	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/ARCHITECTURE.md	git-mcp-server	Thread-B architecture traceability	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/DATA-MODEL.md	git-mcp-server	Thread-B data model documentation	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/REQUIREMENTS.md	git-mcp-server	Thread-B requirements traceability	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/ROLES-AND-USECASES.md	git-mcp-server	Thread-B roles and use cases documentation	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/TESTS.md	git-mcp-server	Thread-B test traceability	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/archive/API-REFERENCE.md	git-mcp-server	archive superseded API reference	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/archive/API_DOCUMENTATION.md	git-mcp-server	archive superseded API documentation	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/archive/MCP_DOCUMENTATION.md	git-mcp-server	archive superseded MCP documentation	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+docs/archive/USE_CASES.md	git-mcp-server	archive superseded use cases	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+src/git_mcp_server/config_sources.py	git-mcp-server	route YAML loads through platform config loader	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+src/git_tools/admin/profile_store.py	git-mcp-server	replace hardcoded path wording in docstring	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+src/git_tools/db/models.py	git-mcp-server	replace hardcoded path wording in docstring	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+src/git_tools/workspaces/gc.py	git-mcp-server	replace hardcoded path wording in docstring	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/e2e/test_access_control_api_contract.py	git-mcp-server	Thread-B API contract tests	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/smoke/test_access_control_matrix.py	git-mcp-server	Thread-B access control matrix tests	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/integration/IT1.61_SeedDeepFlows/test_seed_deep_flows.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/integration/IT1.62_DeepFlowJobs/test_deep_flow_jobs.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.47_AuthorPolicy/test_author_policy.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.58_A2AAllToolsSkillParity/test_a2a_all_tools_skill_parity.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.60_WorkspaceEnumEndpoints/test_workspace_enum_endpoints.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.61_SettingsConfigSources/test_settings_config_sources.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.63_McpAnonAuthGate/test_mcp_anon_auth_gate.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.64_ProfilePersistence/test_profile_persistence.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.65_VestigialGitMcpRoutes/test_vestigial_git_mcp_routes.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.66_AuthMeApiKeyPrincipal/test_auth_me_api_key_principal.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.67_PerToolCallAudit/test_per_tool_call_audit.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.68_A2aEventsGone/test_a2a_events_gone.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+tests/unit/UT1.69_WorkspaceGc/test_workspace_gc.py	git-mcp-server	requirement traceability comments	YES	e140800a7223139ab6fb5ba7319c6e1976ad69ea
+evidence/W28A-745/current	git-mcp-server	current final passing evidence packet	YES	W28A-745-FINAL-PROOF
+evidence/W28A-745/historical	git-mcp-server	diagnostic and superseded evidence separated from current	YES	W28A-745-FINAL-PROOF

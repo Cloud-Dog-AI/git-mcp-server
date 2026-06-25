@@ -1,0 +1,11 @@
+LANE_ID: W28A-745
+BRANCH: main
+EVIDENCE_TAG: W28A-745-EVIDENCE
+FINAL_PROOF_TAG: W28A-745-FINAL-PROOF
+
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
+git ls-remote origin refs/tags/W28A-745-EVIDENCE
+git ls-remote origin refs/tags/W28A-745-FINAL-PROOF
+
+Live HEAD, remote branch equality, and tag ancestry are rechecked by final-evidence-validator.sh after final push.

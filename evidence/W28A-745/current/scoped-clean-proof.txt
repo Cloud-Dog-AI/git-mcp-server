@@ -1,0 +1,7 @@
+git status --short -- evidence/W28A-745 docs src tests
+
+git diff --name-only -- evidence/W28A-745 docs src tests
+
+git diff --cached --name-only -- evidence/W28A-745 docs src tests
+
+Scoped clean proof is also checked live by final-evidence-validator.sh after final push.

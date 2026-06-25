@@ -1,0 +1,35 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-8.4.2, pluggy-1.6.0 -- /opt/iac/Development/cloud-dog-ai/git-mcp-server/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /opt/iac/Development/cloud-dog-ai/git-mcp-server
+configfile: pyproject.toml
+plugins: asyncio-0.26.0, anyio-4.13.0, timeout-2.4.0, cov-5.0.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 900.0s
+timeout method: signal
+timeout func_only: False
+collecting ... collected 21 items
+
+tests/integration/IT1.1_APIHealthEndpoint/test_api_health_endpoint.py::test_api_health_endpoint PASSED [  4%]
+tests/integration/IT1.1_APIHealthEndpoint/test_api_health_endpoint.py::test_api_health_endpoint_legacy_alias_compatibility PASSED [  9%]
+tests/integration/IT1.2_APIAuthReject/test_api_auth_reject.py::test_api_auth_reject PASSED [ 14%]
+tests/integration/IT1.3_APIAuthAccept/test_api_auth_accept.py::test_api_auth_accept PASSED [ 19%]
+tests/integration/IT1.4_APIRBACEnforce/test_api_rbac_enforce.py::test_api_rbac_enforce_remote PASSED [ 23%]
+tests/integration/IT1.5_MCPToolCatalogue/test_mcp_tool_catalogue.py::test_mcp_tool_catalogue PASSED [ 28%]
+tests/integration/IT1.6_MCPToolExecution/test_mcp_tool_execution.py::test_mcp_tool_execution_remote PASSED [ 33%]
+tests/integration/IT1.7_APIFileOpsRefReadonly/test_api_file_ops_ref_readonly.py::test_api_file_ops_ref_readonly PASSED [ 38%]
+tests/integration/IT1.8_CorrelationIDPropagation/test_correlation_id_propagation.py::test_correlation_id_propagation PASSED [ 42%]
+tests/integration/IT1.10_RemoteBranchPush/test_remote_branch_push.py::test_remote_branch_push PASSED [ 47%]
+tests/integration/IT1.9_RemoteCloneAndFetch/test_remote_clone_and_fetch.py::test_remote_clone_and_fetch PASSED [ 52%]
+tests/integration/IT1.11_A2AHealthAuthContract/test_it_a2a_health_auth_contract.py::test_a2a_health_auth_contract PASSED [ 57%]
+tests/integration/IT1.12_JWTAuthContract/test_it_jwt_auth_contract.py::test_it_jwt_auth_accepts_valid_bearer_token PASSED [ 61%]
+tests/integration/IT1.12_JWTAuthContract/test_it_jwt_auth_contract.py::test_it_jwt_auth_rejects_invalid_bearer_token PASSED [ 66%]
+tests/integration/IT1.13_ConfigChangeEventBroadcast/test_config_change_event_broadcast.py::test_profile_crud_broadcasts_a2a_config_events PASSED [ 71%]
+tests/integration/IT1.14_AdminCrudParity/test_admin_crud_parity.py::test_admin_http_crud_contract PASSED [ 76%]
+tests/integration/IT1.14_AdminCrudParity/test_admin_crud_parity.py::test_admin_http_requires_admin_role PASSED [ 80%]
+tests/integration/IT1.14_AdminCrudParity/test_admin_crud_parity.py::test_admin_mcp_tool_parity PASSED [ 85%]
+tests/integration/IT1.14_AdminCrudParity/test_admin_crud_parity.py::test_tool_http_requires_resolved_reader_role_for_repo_access PASSED [ 90%]
+tests/integration/IT1.15_ManagedGitJob/test_managed_git_job.py::test_managed_repo_open_and_diff_job PASSED [ 95%]
+tests/integration/IT1.16_RemoteFetchRealRemoteRefs/test_remote_fetch_real_remote_refs.py::test_git_fetch_restores_real_remote_tracking_ref PASSED [100%]
+
+======================== 21 passed in 199.84s (0:03:19) ========================

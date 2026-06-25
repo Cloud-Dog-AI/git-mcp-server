@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -24,6 +26,8 @@ from cloud_dog_logging import get_logger
 from pydantic import BaseModel
 
 from git_tools.admin.runtime import AdminRuntime
+from git_tools.audit.events import AuditActor, AuditRecord
+from git_tools.audit.logger import AuditWriter
 from git_tools.files.io import (
     copy_entry,
     ensure_directory,
@@ -126,6 +130,10 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 _audit = get_logger("git_mcp.tool_audit")
 
+# GM4 (W28C-1705) — disk-pressure thresholds for the workspace volume.
+_DISK_PRESSURE_WARN_PERCENT = 80.0
+_REPO_OPEN_DISK_REFUSE_PERCENT = 95.0
+
 
 @dataclass(slots=True)
 class ToolContract:
@@ -182,9 +190,11 @@ class ToolRegistry:
         group_store: dict[str, dict[str, Any]] | None = None,
         role_bindings: dict[str, set[str]] | None = None,
         credential_store: dict[str, str] | None = None,
+        audit_writer: AuditWriter | None = None,
     ) -> None:
         self.workspace_manager = workspace_manager
         self.admin_runtime = admin_runtime
+        self._audit_writer = audit_writer
         self.profile_store = profile_store if profile_store is not None else {}
         self.user_store = user_store if user_store is not None else {}
         self.group_store = group_store if group_store is not None else {}
@@ -473,17 +483,76 @@ class ToolRegistry:
             raise KeyError(f"Unknown tool: {name}")
         return self._call_with_audit(name, payload)
 
-    def _call_with_audit(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
-        """Execute tool with PS-50 audit logging and content redaction."""
+    def _call_with_audit(
+        self,
+        name: str,
+        payload: dict[str, Any],
+        *,
+        actor_id: str = "service_account",
+        correlation_id: str = "",
+    ) -> dict[str, Any]:
+        """Execute tool with PS-50 audit logging and content redaction.
+
+        Emits BOTH the lightweight ``mcp_tool_call`` log line AND (GM3 / W28C-1705) a typed
+        per-tool-call ``AuditEvent`` through the injected ``AuditWriter`` — tying the resolved
+        principal to the operation, outcome and commit_sha so git-mcp's audit log is the
+        attribution record (the W28M-1602 author-override becomes audit-verifiable).
+        """
         _safe = {k: ("[REDACTED]" if k.lower() in ("content", "password", "secret", "token", "body") else v) for k, v in payload.items()}
         _t0 = time.monotonic()
         try:
             result = self._tools[name].handler(payload)
             _audit.info("mcp_tool_call", extra={"event_type": "mcp_tool_call", "tool_name": name, "parameters": _safe, "outcome": "success", "duration_ms": round((time.monotonic() - _t0) * 1000, 2), "service": "git-mcp"})
+            self._emit_tool_audit(name, "success", actor_id, correlation_id, _safe, result=result)
             return result
-        except Exception:
+        except Exception as exc:
             _audit.warning("mcp_tool_call", extra={"event_type": "mcp_tool_call", "tool_name": name, "parameters": _safe, "outcome": "error", "duration_ms": round((time.monotonic() - _t0) * 1000, 2), "service": "git-mcp"})
+            self._emit_tool_audit(name, "failure", actor_id, correlation_id, _safe, error=str(exc))
             raise
+
+    def _emit_tool_audit(
+        self,
+        name: str,
+        status: str,
+        actor_id: str,
+        correlation_id: str,
+        safe_params: dict[str, Any],
+        *,
+        result: Any = None,
+        error: str | None = None,
+    ) -> None:
+        """Emit one typed AuditEvent per tool call (best-effort — never breaks the call)."""
+        if self._audit_writer is None:
+            return
+        params: dict[str, Any] = dict(safe_params)
+        resolved_ref: str | None = None
+        if isinstance(result, dict):
+            commit_sha = result.get("commit") or result.get("commit_sha")
+            if commit_sha:
+                resolved_ref = str(commit_sha)
+            try:
+                output_sha256: str | None = hashlib.sha256(
+                    json.dumps(result, default=str, sort_keys=True).encode()
+                ).hexdigest()
+            except (TypeError, ValueError):
+                output_sha256 = None
+            params["output"] = {"commit_sha": commit_sha, "output_sha256": output_sha256}
+        record = AuditRecord(
+            operation=name,
+            status=status,
+            correlation_id=correlation_id or "",
+            actor=AuditActor(actor_id=actor_id or "service_account", actor_type="user"),
+            params=params,
+            resolved_ref=resolved_ref,
+            errors=[error] if error else [],
+        )
+        try:
+            self._audit_writer.emit(record)
+        except Exception:  # noqa: BLE001 — audit must never break the tool call
+            _audit.warning(
+                "audit_emit_failed",
+                extra={"event_type": "audit_emit_failed", "tool_name": name, "service": "git-mcp"},
+            )
 
     def call_with_access(
         self,
@@ -493,6 +562,7 @@ class ToolRegistry:
         actor_id: str = "",
         roles: set[str] | None = None,
         capabilities: set[str] | None = None,
+        correlation_id: str = "",
     ) -> dict[str, Any]:
         """Execute a registered tool handler with optional profile-scoped access enforcement."""
         if name not in self._tools:
@@ -504,7 +574,9 @@ class ToolRegistry:
             roles=roles or set(),
             capabilities=capabilities or set(),
         )
-        return self._call_with_audit(name, payload)
+        return self._call_with_audit(
+            name, payload, actor_id=actor_id or "service_account", correlation_id=correlation_id
+        )
 
     def contracts(self) -> dict[str, ToolContract]:
         """Return all tool contracts."""
@@ -664,6 +736,14 @@ class ToolRegistry:
         return {"type": ref.type, "name": ref.name}
 
     def _repo_access(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # GM4 (W28C-1705): refuse new workspace creation under critical disk pressure.
+        disk_percent = self.workspace_manager.disk_usage_percent()
+        if disk_percent >= _REPO_OPEN_DISK_REFUSE_PERCENT:
+            raise RuntimeError(
+                f"repo_open refused: workspace disk at {disk_percent:.1f}% "
+                f"(>= {_REPO_OPEN_DISK_REFUSE_PERCENT:.0f}% critical threshold); free space via "
+                "the workspace GC / admin reap before opening new repositories."
+            )
         args = self._validate(RepoOpenInput, payload)
         self._assert_ref_allowed(args.profile, args.ref)
         source = self._resolve_repo_source(args.profile, args.repo_source)
@@ -786,7 +866,13 @@ class ToolRegistry:
     def _git_commit(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = self._validate(GitCommitInput, payload)
         workspace = self._workspace_for_tool(args.workspace_id, "git_commit")
-        commit = self._repo(workspace).commit(args.message)
+        commit = self._repo(workspace).commit(
+            args.message,
+            author_name=args.author_name,
+            author_email=args.author_email,
+            committer_name=args.committer_name,
+            committer_email=args.committer_email,
+        )
         return {"commit": commit}
 
     def _git_fetch(self, payload: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,9 @@
+## remote docker container status
+NAMES                                  IMAGE          STATUS                    CONTAINER ID
+gitmcpserver0.app.vpc0.cloud-dog.net   f21df9bdb0b4   Up 20 seconds (healthy)   00e62a30ad29
+## remote docker inspect image/status
+id=00e62a30ad2928245230e266be6cf08bc26285c455c48bb03961fffb7a8c9552 image=sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382 started=2026-06-12T06:47:32.259490181Z status=running health=healthy
+## remote image digest
+image_id=sha256:f21df9bdb0b4c1a23f75865217d9054b2fc10f35133c8f1d59e4a35cb0300382 repo_digests=["registry.cloud-dog.net:443/cloud-dog/git-mcp-server@sha256:25fba52d73c2b369e526f551881fb506945323d22694b5c15cb14ac7ef1f8e11"] repo_tags=["cloud-dog/git-mcp-server:latest","registry.cloud-dog.net:443/cloud-dog/git-mcp-server:latest"]
+## seed key sha256 only
+cfef8afd6cac634038ee2bb022b955ca06c9ddfe563a9e07e09168906db072a6

@@ -1,0 +1,9 @@
+## source commit before push
+e140800a7223139ab6fb5ba7319c6e1976ad69ea
+?? evidence/
+## git push origin main
+To https://git.cloud-dog.net/cloud-dog-ai/git-mcp-server.git
+   d7226d0..e140800  main -> main
+## origin/main after push
+e140800a7223139ab6fb5ba7319c6e1976ad69ea
+ancestor_check=PASS HEAD_is_ancestor_of_origin_main

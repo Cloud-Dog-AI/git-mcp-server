@@ -1,0 +1,6 @@
+service	url	document_status	title	body_chars	login_state	console_errors	critical_request_failures	screenshot	pass
+target-gitmcpserver0	https://gitmcpserver0.cloud-dog.net/	200	Cloud-Dog Git MCP	2768	signed-in	0	0	evidence/W28A-745/current/g8-live/browser-smoke-current/screenshots/target-gitmcpserver0.png	PASS
+sentinel-chatclient0	https://chatclient0.cloud-dog.net/	200	Cloud-Dog : Chat client	3580	signed-in	0	0	evidence/W28A-745/current/g8-live/browser-smoke-current/screenshots/sentinel-chatclient0.png	PASS
+sentinel-expertagent0	https://expertagent0.cloud-dog.net/	200	Cloud-Dog : Expert Agent	2268	signed-in	0	0	evidence/W28A-745/current/g8-live/browser-smoke-current/screenshots/sentinel-expertagent0.png	PASS
+sentinel-notificationagent0	https://notificationagent0.cloud-dog.net/	200	Cloud-Dog : Notification agent	2494	signed-in	0	0	evidence/W28A-745/current/g8-live/browser-smoke-current/screenshots/sentinel-notificationagent0.png	PASS
+sentinel-filemcpserver0	https://filemcpserver0.cloud-dog.net/	200	Cloud-Dog File MCP	1556	signed-in	0	0	evidence/W28A-745/current/g8-live/browser-smoke-current/screenshots/sentinel-filemcpserver0.png	PASS

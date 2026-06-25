@@ -1,0 +1,26 @@
+timestamp=2026-05-08T18:52:32+01:00
+python=Python 3.12.13
+api: stopped
+web: stopped
+mcp: stopped
+a2a: stopped
+api: started (PID 594345)
+web: started (PID 594872)
+mcp: started (PID 595299)
+a2a: started (PID 595858)
+api: running (PID 594345)
+web: running (PID 594872)
+mcp: running (PID 595299)
+a2a: running (PID 595858)
+http://127.0.0.1:19031/health -> 200 {"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{"db":{"status":"ok","ok":true,
+http://127.0.0.1:19032/ -> 200 <!doctype html> <html lang="en">   <head>     <meta charset="UTF-8" />     <meta name="viewport" content="width=device-w
+http://127.0.0.1:19033/health -> 200 {"status":"ok","application":"git-mcp-server-mcp","version":"0.1.0","env_file":null,"checks":{}}
+http://127.0.0.1:19034/health -> 200 {"status":"ok","application":"git-mcp-server","version":"0.1.0","env_file":null,"checks":{}}
+api: stopped
+web: stopped
+mcp: stopped
+a2a: stopped
+api: stopped
+web: stopped
+mcp: stopped
+a2a: stopped

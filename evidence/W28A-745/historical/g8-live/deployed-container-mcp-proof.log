@@ -1,0 +1,7 @@
+seed_key=REDACTED
+## in-container MCP /mcp tools/list with x-api-key
+http_code=401 content_type=application/json
+{"detail":"Unauthorised"}
+## in-container API /api/v1/tools with x-api-key
+http_code=200 content_type=application/json
+{"ok":true,"result":{"items":[{"name":"repo_open","description":"Create workspace and open repository context.","input_schema":{"$defs":{"RefSpec":{"description":"Ref selection input.","properties":{"type":{"enum":["branch","tag","commit"],"title":"Type","type":"string"},"name":{"title":"Name","type":"string"}},"required":["type","name"],"title":"RefSpec","type":"object"}},"description":"Input for repo_open tool.","properties":{"profile":{"title":"Profile","type":"string"},"session_id":{"title":

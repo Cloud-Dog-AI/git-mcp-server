@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import uuid4
 
 import uvicorn
 from cloud_dog_api_kit import create_health_router
 from cloud_dog_api_kit.a2a.card import create_a2a_card_router, A2ASkill
 from cloud_dog_storage import path_utils
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 
 from git_mcp_server.api_server import (
     _create_platform_app,
@@ -33,6 +35,9 @@ from git_mcp_server.http_client import build_origin, request_json
 from git_mcp_server.logging import configure_service_logging
 from git_tools.admin.runtime import ConfigEventHub
 from git_tools.config.loader import bind_global_config, load_raw_config
+from git_tools.admin.profile_store import ProfileStore
+from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
+from git_tools.db import initialise_database
 from git_tools.tools.registry import ToolRegistry
 from git_tools.workspaces.manager import WorkspaceManager
 
@@ -56,6 +61,46 @@ async def _api_key_valid_via_api(config, candidate: str) -> bool:
     except Exception:  # noqa: BLE001
         return False
     return response.status_code == 200
+
+
+async def _a2a_principal_via_api(config, candidate: str) -> dict[str, Any] | None:
+    # req: FR-004, FR-019
+    """Resolve an A2A bearer API key through the API tier's IDAM authority."""
+    key = candidate.strip()
+    if not key:
+        return None
+    try:
+        response = await request_json(
+            "GET",
+            f"{_api_origin(config)}{config.api_server.base_path}/whoami",
+            headers={"x-api-key": key},
+            timeout=_timeout_seconds_from_config(config.api_server.request_timeout_seconds),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    if response.status_code != 200:
+        return None
+    payload = response.json()
+    result = payload.get("result") if isinstance(payload, dict) else None
+    if not isinstance(result, dict):
+        return None
+    return {
+        "actor": str(result.get("actor") or "").strip(),
+        "roles": [str(item).strip() for item in result.get("roles", []) if str(item).strip()],
+        "capabilities": [
+            str(item).strip() for item in result.get("capabilities", []) if str(item).strip()
+        ],
+    }
+
+
+async def _a2a_principal_from_request(request: Request, config) -> dict[str, Any] | None:
+    # req: FR-004, FR-019
+    """Resolve the authenticated A2A task principal from a bearer API key."""
+    header = request.headers.get("authorization", "").strip()
+    parts = header.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return await _a2a_principal_via_api(config, parts[1])
 
 
 async def _a2a_request_authorised(request: Request, config) -> bool:
@@ -134,11 +179,55 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
         finally:
             event_hub.unsubscribe(subscription)
 
+    # GM5 (W28C-1705, OPT-B): /a2a/events + /a2a/events/stream were advertised by an older
+    # topology but never implemented (always-404). The agent-card already declares streaming:
+    # false and no longer lists them; return an explicit 410 Gone (not an ambiguous 404) so any
+    # client still polling gets a clear signal. Per-operation observability is the GM3 audit log
+    # (cloud_dog_logging.audit_schema); config-change events remain on /a2a/events/config (WS).
+    async def _a2a_events_gone() -> None:
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "The /a2a/events SSE stream is not implemented on git-mcp. Per-operation "
+                "observability is the audit log (cloud_dog_logging.audit_schema); config-change "
+                "events are on the /a2a/events/config websocket."
+            ),
+        )
+
+    # Register at BOTH the configured base_path and the reverse-proxy strip-prefixed path
+    # strips /a2a so the a2a tier actually receives /events; tests/local hit /a2a/events directly.
+    _events_paths = [
+        f"{config.a2a_server.base_path}/events",
+        f"{config.a2a_server.base_path}/events/stream",
+        "/events",
+        "/events/stream",
+    ]
+    for _i, _events_path in enumerate(dict.fromkeys(_events_paths)):
+        app.add_api_route(
+            _events_path,
+            _a2a_events_gone,
+            methods=["GET"],
+            include_in_schema=False,
+            name=f"a2a_events_gone_{_i}",
+        )
+
     # Build a ToolRegistry so A2A skill handlers can call real git tool logic.
     workspace_root = path_utils.as_path(config.workspace.base_dir).resolve()
     workspace_root.mkdir(parents=True, exist_ok=True)
     workspace_manager = WorkspaceManager(workspace_root)
-    tool_registry = ToolRegistry(workspace_manager)
+    # GM2 (W28C-1705 / 1603-unblocker): resolve profiles from the same durable
+    # git_profile_registry store the api/mcp surfaces use (shared /app/data DB), so A2A skill
+    # handlers see REST-/MCP-created profiles and they survive container restart.
+    db_runtime = initialise_database(config=raw_snapshot, env_files=env_files)
+    profile_store = ProfileStore(
+        db_runtime.session_manager,
+        seed_profiles={
+            name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
+        },
+    )
+    # GM3 (W28C-1705): per-tool-call typed audit on the A2A surface (reuse the app's audit sink).
+    audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
+    tool_registry = ToolRegistry(workspace_manager, profile_store=profile_store, audit_writer=audit_writer)
 
     def _parse_a2a_input(text: str) -> dict[str, Any]:
         """Parse JSON input text or return a minimal dict from plain text."""
@@ -202,6 +291,86 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
             return tool_registry.call(tool_name, payload)
         return _handler
 
+    def _make_authenticated_tool_handler(tool_name: str):  # noqa: ANN202
+        # req: FR-004, FR-019
+        def _handler(text: str, principal: dict[str, Any]) -> Any:
+            payload = _parse_a2a_input(text)
+            return tool_registry.call_with_access(
+                tool_name,
+                payload,
+                actor_id=str(principal.get("actor") or "a2a-bearer"),
+                roles=set(principal.get("roles", [])),
+                capabilities=set(principal.get("capabilities", [])),
+            )
+
+        return _handler
+
+    _authenticated_skill_handlers = {
+        _tool_name: _make_authenticated_tool_handler(_tool_name)
+        for _tool_name in tool_registry.contracts()
+    }
+
+    async def _submit_authenticated_task(request: Request) -> JSONResponse:
+        # req: FR-004, FR-019
+        """Accept an authenticated A2A task and dispatch through the guarded registry."""
+        principal = await _a2a_principal_from_request(request, config)
+        if principal is None:
+            raise HTTPException(status_code=401, detail="Unauthorised")
+        body = await request.json()
+        task_id = body.get("id", str(uuid4()))
+        skill_id = str(body.get("skill_id", "")).strip()
+        input_data = body.get("input", {})
+        input_text = input_data.get("text", "") if isinstance(input_data, dict) else str(input_data)
+        if skill_id == "health":
+            return JSONResponse(
+                {
+                    "id": task_id,
+                    "status": "completed",
+                    "output": {"type": "text", "text": "git-mcp is healthy"},
+                }
+            )
+        handler = _authenticated_skill_handlers.get(skill_id)
+        if handler is None:
+            return JSONResponse(
+                {
+                    "id": task_id,
+                    "status": "failed",
+                    "error": f"Unknown skill: {skill_id}. Available: {list(_authenticated_skill_handlers)}",
+                },
+                status_code=404,
+            )
+        try:
+            result = handler(input_text, principal)
+        except PermissionError as exc:
+            return JSONResponse({"id": task_id, "status": "failed", "error": str(exc)}, status_code=403)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"id": task_id, "status": "failed", "error": str(exc)}, status_code=400)
+        return JSONResponse(
+            {
+                "id": task_id,
+                "status": "completed",
+                "output": {"type": "text", "text": str(result)},
+            }
+        )
+
+    app.add_api_route(
+        f"{config.a2a_server.base_path}/tasks",
+        _submit_authenticated_task,
+        methods=["POST"],
+        tags=["a2a"],
+        name="authenticated_a2a_tasks",
+    )
+    app.add_api_route(
+        "/tasks",
+        _submit_authenticated_task,
+        methods=["POST"],
+        tags=["a2a"],
+        name="authenticated_a2a_tasks_stripped",
+    )
+
+    def _blocked_card_handler(_text: str) -> Any:
+        raise PermissionError("A2A task execution requires the authenticated dispatcher")
+
     _a2a_skills: list[A2ASkill] = []
     for _tool_name, _contract in tool_registry.contracts().items():
         _a2a_skills.append(
@@ -209,7 +378,7 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
                 id=_tool_name,
                 name=_tool_name.replace("_", " ").title(),
                 description=_contract.description or _tool_name,
-                handler=_make_tool_handler(_tool_name),
+                handler=_blocked_card_handler,
             )
         )
     _a2a_card_router = create_a2a_card_router(

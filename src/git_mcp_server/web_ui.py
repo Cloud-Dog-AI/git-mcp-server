@@ -72,6 +72,26 @@ def _request_origin(request: Request) -> str:
     return str(request.base_url).rstrip("/")
 
 
+def _web_auth_mode(config: GlobalConfigModel) -> str:
+    """Return the WebUI runtime-config AUTH_MODE for the browser login form.
+
+    The git-mcp WebUI front-door login is username/password: ``/auth/login``
+    validates the three flat-role accounts (admin / read-write / read-only) from
+    ``config.web_login.*`` and mints the ``git_web_session`` cookie. The SPA
+    bundle branches ``AUTH_MODE === "cookie" ? cookie : api_key`` — so this MUST
+    advertise ``cookie`` for the rendered form to match the backend contract.
+
+    This is intentionally NOT derived from ``config.auth.mode``: that value is the
+    API/MCP/A2A *service* auth mode (api_key service-to-service), a different
+    concern from the human WebUI login. A prior change conflated the two, so the
+    deployed UI rendered an API-key field the username/password ``/auth/login``
+    rejected (HTTP 400) — the W28A-731-R5 live-login mismatch. The X-API-Key
+    service-account path on ``/auth/me`` remains for non-browser callers and is
+    unaffected by the advertised browser AUTH_MODE.
+    """
+    return "cookie"
+
+
 def _runtime_config_payload(config: GlobalConfigModel, request: Request) -> dict[str, Any]:
     """Build the browser runtime config from the resolved service config."""
     origin = _request_origin(request)
@@ -87,7 +107,7 @@ def _runtime_config_payload(config: GlobalConfigModel, request: Request) -> dict
         "API_BASE_URL": origin,
         "MCP_BASE_URL": origin,
         "A2A_BASE_URL": a2a_base_url,
-        "AUTH_MODE": "cookie",
+        "AUTH_MODE": _web_auth_mode(config),
         "DEFAULT_PROFILE": default_profile,
         "REMOTE_REPO_URL": remote_repo_url,
         "SESSION_TIMEOUT_MINUTES": config.web.session_timeout_minutes,
@@ -146,6 +166,7 @@ def register_web_ui(app: FastAPI, config: GlobalConfigModel) -> None:
         remote_repo = cfg.get("REMOTE_REPO_URL", "")
         a2a_base_url = cfg.get("A2A_BASE_URL", f"{mcp_path}/../a2a")
         session_timeout_minutes = cfg.get("SESSION_TIMEOUT_MINUTES", 30)
+        auth_mode = cfg.get("AUTH_MODE", "cookie")
         if mcp_path:
             mcp_base_url_expr = f'__origin + "{mcp_path}"'
         else:
@@ -157,7 +178,7 @@ def register_web_ui(app: FastAPI, config: GlobalConfigModel) -> None:
             '  "API_BASE_URL": __origin,\n'
             f'  "MCP_BASE_URL": {mcp_base_url_expr},\n'
             f'  "A2A_BASE_URL": "{a2a_base_url}",\n'
-            '  "AUTH_MODE": "cookie",\n'
+            f'  "AUTH_MODE": "{auth_mode}",\n'
             f'  "DEFAULT_PROFILE": "{default_profile}",\n'
             f'  "REMOTE_REPO_URL": "{remote_repo}",\n'
             f'  "SESSION_TIMEOUT_MINUTES": {int(session_timeout_minutes)}\n'

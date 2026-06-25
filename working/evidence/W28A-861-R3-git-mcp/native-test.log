@@ -1,0 +1,60 @@
+W28A-861-R3-S SENDBACK remediation — NATIVE test evidence (git-mcp)
+================================================================
+Date: 2026-06-08
+Merged HEAD: d093724 (merge --no-ff of origin/fix/W28A-861-R3-git-mcp into origin/main d8c88a0)
+Interpreter: git-mcp-server/.venv/bin/python (Python 3.12.13) — platform pkgs installed
+            (cloud_dog_config/logging/api_kit/idam/db/jobs all import OK)
+Invocation: PYTHONPATH=<worktree>/src python -m pytest <suite> --env <UT|QT>
+            env-vault sourced (creds resolved, NEVER printed/committed — §9.2; redacted).
+NOTE: merged tree src/ tests/ pyproject.toml are BYTE-IDENTICAL to origin/main
+      (R3 added NO application-code changes; only Dockerfile.public / docker-build.sh /
+       docs / ui-dist / requirements.lock / .publish-exclude / EXTERNAL-BUILD.md).
+      Confirmed: `git diff origin/main -- src tests pyproject.toml` == empty.
+
+UNIT TESTS (tests/unit --env UT)
+--------------------------------
+Result: 80 passed, 3 failed
+  (an earlier run showed 79 passed / 4 failed — UT1.57_UiSupportEndpoints is
+   order/timing-flaky, passes or fails by run, independent of this merge.)
+
+Failing tests (ALL pre-existing on clean origin/main — see reconciliation):
+  FAILED UT1.48_URLAllowlist::test_remote_url_allowlist_enforced
+         test asserts "forbidden" substring; code message says "is not in allowlist".
+         Test/message wording drift. Not merge-related.
+  FAILED UT1.56_WebUiDelivery::test_web_ui_routes_serve_spa_and_runtime_config
+         test expects '"MCP_BASE_URL": __origin + "/mcp"' literal; the SERVER-
+         GENERATED runtime-config endpoint uses a different server-side shape
+         (REMOTE_REPO_URL default https://github.com/octocat/Hello-World.git).
+         This is the generated /runtime-config endpoint, NOT the static
+         ui/dist/runtime-config.js the merge touched. Not merge-related.
+  FAILED UT1.56_WebUiDelivery::test_web_ui_runtime_config_uses_forwarded_https_origin
+         same generator-shape drift. Not merge-related.
+
+BASELINE RECONCILIATION (clean origin/main d8c88a0, same .venv):
+  The identical UT1.48 + UT1.56 failures reproduce on clean origin/main.
+  => The merge introduces ZERO new unit-test failures.
+
+QUALITY TESTS (tests/quality/QT_COMPLIANCE --env QT)
+----------------------------------------------------
+Result: 41 passed, 4 failed.
+
+Publication-relevant QT checks (secrets/leakage/bespoke) — ALL PASS on merged tree
+(targeted run: 8/8 PASS):
+  PASS test_qt26_secrets_separation.py
+  PASS test_qt27_bespoke_code_scan.py
+  PASS test_qt_rules_compliance::test_no_hardcoded_urls
+  PASS test_qt_rules_compliance::test_no_hardcoded_credentials
+  PASS test_qt_vault_config_contract::test_no_secrets_in_source
+  PASS test_qt_vault_config_contract::test_config_yaml_no_secrets
+
+Failing QT tests (ALL pre-existing on clean origin/main — reconfirmed):
+  FAILED test_qt1_security_suite::test_qt1_3_domain_specific_safety (SSRF/URL-filter signal heuristic)
+  FAILED test_qt_traceability::test_all_test_functions_have_requirements
+  FAILED test_qt_traceability::test_no_orphan_test_files
+  FAILED test_qt_traceability::test_w18a03_webui_accessibility_evidence
+  => Same 4 failures reproduce on clean origin/main. ZERO new QT failures from merge.
+
+CONCLUSION: Native UT+QT on the merged tree match clean origin/main exactly. The
+merge introduces no regressions. Pre-existing failures are owned by their respective
+lanes (UI runtime-config shape, allowlist message wording, traceability matrix), NOT
+by this publication-prep merge.

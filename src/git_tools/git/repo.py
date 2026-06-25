@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import subprocess
 
-from git import GitCommandError, Repo
+from git import Actor, GitCommandError, Repo
 
 from git_tools.process_env import current_process_env
 from git_tools.security.git_auth import prime_git_https_credentials
@@ -68,9 +68,32 @@ class GitRepository:
             return str(self.repo.git.reset("HEAD", "--", *paths))
         return str(self.repo.git.reset("HEAD"))
 
-    def commit(self, message: str) -> str:
-        """Create commit and return hash."""
-        return self.repo.index.commit(message).hexsha
+    def commit(
+        self,
+        message: str,
+        author_name: str | None = None,
+        author_email: str | None = None,
+        committer_name: str | None = None,
+        committer_email: str | None = None,
+    ) -> str:
+        """Create commit and return hash.
+
+        W28M-1602: when author_name/author_email (and optionally committer
+        fields) are supplied, stamp the commit with those identities so the
+        agentic audit-log carries the real kickoff principal (cloud_dog_idam),
+        not the service identity. When omitted, falls back to the repository's
+        git config defaults (back-compat)."""
+        author: Actor | None = None
+        committer: Actor | None = None
+        if author_name and author_email:
+            author = Actor(author_name, author_email)
+        if committer_name and committer_email:
+            committer = Actor(committer_name, committer_email)
+        elif author is not None:
+            committer = author
+        return self.repo.index.commit(
+            message, author=author, committer=committer
+        ).hexsha
 
     def branch_list(self) -> list[str]:
         """List local branch names."""

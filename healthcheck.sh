@@ -40,14 +40,13 @@ WEB_PORT="${RESOLVED_PORTS[2]}"
 MCP_PORT="${RESOLVED_PORTS[3]}"
 A2A_PORT="${RESOLVED_PORTS[4]}"
 
-if curl -fsS "${PROBE_ORIGIN}:${API_PORT}/health" >/dev/null; then
+if [[ -n "${CLOUD_DOG_HEALTHCHECK_PORT:-}" ]]; then
+  curl -fsS "${PROBE_ORIGIN}:${CLOUD_DOG_HEALTHCHECK_PORT}/health" >/dev/null
   exit 0
 fi
 
-for port in "${WEB_PORT}" "${MCP_PORT}" "${A2A_PORT}"; do
-  if [[ "${port}" != "${API_PORT}" ]] && curl -fsS "${PROBE_ORIGIN}:${port}/health" >/dev/null; then
-    exit 0
-  fi
+for port in "${API_PORT}" "${WEB_PORT}" "${MCP_PORT}" "${A2A_PORT}"; do
+  curl -fsS "${PROBE_ORIGIN}:${port}/health" >/dev/null
 done
 
-exit 1
+exit 0

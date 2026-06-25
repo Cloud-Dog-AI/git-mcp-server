@@ -1,0 +1,130 @@
+services:
+  api:
+    image: cloud-dog/git-mcp-server:latest
+    container_name: git-mcp-api
+    command: api
+    ports:
+      - "${CLOUD_DOG__API_SERVER__PORT}:${CLOUD_DOG__API_SERVER__PORT}"
+    env_file:
+      - ${ENV_FILE:-../.env}
+    environment:
+      - CLOUD_DOG__API_SERVER__PORT=${CLOUD_DOG__API_SERVER__PORT}
+      - CLOUD_DOG__API_SERVER__HOST=${CLOUD_DOG__API_SERVER__HOST}
+      - CLOUD_DOG_HEALTHCHECK_PORT=${CLOUD_DOG__API_SERVER__PORT}
+      - VAULT_ADDR=${VAULT_ADDR:-}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+      - VAULT_MOUNT_POINT=${VAULT_MOUNT_POINT:-cloud_dog_ai}
+      - VAULT_CONFIG_PATH=${VAULT_CONFIG_PATH:-config}
+    volumes:
+      - ../working/local-docker/logs:/app/logs
+      - ../working/local-docker/data:/app/data
+      - ../working/local-docker/certs:/app/certs
+      - ${PWD}:${PWD}
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    image: cloud-dog/git-mcp-server:latest
+    container_name: git-mcp-web
+    command: web
+    ports:
+      - "${CLOUD_DOG__WEB_SERVER__PORT}:${CLOUD_DOG__WEB_SERVER__PORT}"
+    env_file:
+      - ${ENV_FILE:-../.env}
+    environment:
+      - CLOUD_DOG__WEB_SERVER__PORT=${CLOUD_DOG__WEB_SERVER__PORT}
+      - CLOUD_DOG__WEB_SERVER__HOST=${CLOUD_DOG__WEB_SERVER__HOST}
+      - CLOUD_DOG_HEALTHCHECK_PORT=${CLOUD_DOG__WEB_SERVER__PORT}
+      - VAULT_ADDR=${VAULT_ADDR:-}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+      - VAULT_MOUNT_POINT=${VAULT_MOUNT_POINT:-cloud_dog_ai}
+      - VAULT_CONFIG_PATH=${VAULT_CONFIG_PATH:-config}
+    volumes:
+      - ../working/local-docker/logs:/app/logs
+      - ../working/local-docker/data:/app/data
+      - ../working/local-docker/certs:/app/certs
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mcp:
+    image: cloud-dog/git-mcp-server:latest
+    container_name: git-mcp-mcp
+    command: mcp
+    ports:
+      - "${CLOUD_DOG__MCP_SERVER__PORT}:${CLOUD_DOG__MCP_SERVER__PORT}"
+    env_file:
+      - ${ENV_FILE:-../.env}
+    environment:
+      - CLOUD_DOG__MCP_SERVER__PORT=${CLOUD_DOG__MCP_SERVER__PORT}
+      - CLOUD_DOG__MCP_SERVER__HOST=${CLOUD_DOG__MCP_SERVER__HOST}
+      - CLOUD_DOG_HEALTHCHECK_PORT=${CLOUD_DOG__MCP_SERVER__PORT}
+      - VAULT_ADDR=${VAULT_ADDR:-}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+      - VAULT_MOUNT_POINT=${VAULT_MOUNT_POINT:-cloud_dog_ai}
+      - VAULT_CONFIG_PATH=${VAULT_CONFIG_PATH:-config}
+    volumes:
+      - ../working/local-docker/logs:/app/logs
+      - ../working/local-docker/certs:/app/certs
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  a2a:
+    image: cloud-dog/git-mcp-server:latest
+    container_name: git-mcp-a2a
+    command: a2a
+    ports:
+      - "${CLOUD_DOG__A2A_SERVER__PORT}:${CLOUD_DOG__A2A_SERVER__PORT}"
+    env_file:
+      - ${ENV_FILE:-../.env}
+    environment:
+      - CLOUD_DOG__A2A_SERVER__PORT=${CLOUD_DOG__A2A_SERVER__PORT}
+      - CLOUD_DOG__A2A_SERVER__HOST=${CLOUD_DOG__A2A_SERVER__HOST}
+      - CLOUD_DOG__API_SERVER__CLIENT_HOST=api
+      - CLOUD_DOG_HEALTHCHECK_PORT=${CLOUD_DOG__A2A_SERVER__PORT}
+      - VAULT_ADDR=${VAULT_ADDR:-}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+      - VAULT_MOUNT_POINT=${VAULT_MOUNT_POINT:-cloud_dog_ai}
+      - VAULT_CONFIG_PATH=${VAULT_CONFIG_PATH:-config}
+    volumes:
+      - ../working/local-docker/logs:/app/logs
+      - ../working/local-docker/data:/app/data
+      - ../working/local-docker/certs:/app/certs
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # All-in-one (development only)
+  all-in-one:
+    image: cloud-dog/git-mcp-server:latest
+    container_name: git-mcp-all
+    command: all
+    network_mode: host
+    environment:
+      - CLOUD_DOG__API_SERVER__HOST=0.0.0.0
+      - CLOUD_DOG__WEB_SERVER__HOST=0.0.0.0
+      - CLOUD_DOG__MCP_SERVER__HOST=0.0.0.0
+      - CLOUD_DOG__A2A_SERVER__HOST=0.0.0.0
+      - VAULT_ADDR=${VAULT_ADDR:-}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+      - VAULT_MOUNT_POINT=${VAULT_MOUNT_POINT:-cloud_dog_ai}
+      - VAULT_CONFIG_PATH=${VAULT_CONFIG_PATH:-config}
+    env_file:
+      - ${ENV_FILE:-../.env}
+    volumes:
+      - ../working/local-docker/logs:/app/logs
+      - ../working/local-docker/data:/app/data
+      - ../working/local-docker/certs:/app/certs
+      - ${PWD}:${PWD}
+    profiles:
+      - all-in-one
+    restart: unless-stopped

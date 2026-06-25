@@ -73,9 +73,19 @@ class GitAddInput(WorkspaceInput):
 
 
 class GitCommitInput(WorkspaceInput):
-    """Input for git_commit tool."""
+    """Input for git_commit tool.
+
+    W28M-1602: optional `author_name` + `author_email` (and matching
+    committer fields) let the caller stamp the real principal onto the
+    commit instead of the service identity. When omitted, the workspace's
+    own git config defaults apply (back-compat for pre-1602 callers).
+    """
 
     message: str
+    author_name: str | None = None
+    author_email: str | None = None
+    committer_name: str | None = None
+    committer_email: str | None = None
 
 
 class GitPushInput(WorkspaceInput):

@@ -44,7 +44,7 @@ charset-normalizer==3.4.7
     # via requests
 click==8.4.1
     # via uvicorn
-cloud-dog-api-kit==0.12.4
+cloud-dog-api-kit==0.13.0
     # via git-mcp-server (pyproject.toml)
 cloud-dog-cache==0.2.0
     # via git-mcp-server (pyproject.toml)
@@ -52,13 +52,13 @@ cloud-dog-config==0.3.2
     # via git-mcp-server (pyproject.toml)
 cloud-dog-db==0.3.0
     # via git-mcp-server (pyproject.toml)
-cloud-dog-idam==0.4.0
+cloud-dog-idam==0.5.2
     # via git-mcp-server (pyproject.toml)
 cloud-dog-jobs==0.4.1
     # via git-mcp-server (pyproject.toml)
 cloud-dog-logging==0.4.0
     # via git-mcp-server (pyproject.toml)
-cloud-dog-storage==0.1.4
+cloud-dog-storage==0.1.6
     # via git-mcp-server (pyproject.toml)
 cryptography==46.0.7
     # via

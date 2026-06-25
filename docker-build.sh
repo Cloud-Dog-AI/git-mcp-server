@@ -27,6 +27,21 @@
 # selects which Dockerfile is fed to BuildKit.
 set -euo pipefail
 
+require_main_or_release_branch() {
+  local branch
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  case "${branch}" in
+    main|release/*)
+      return 0
+      ;;
+  esac
+
+  echo "ERROR: docker-build.sh refuses to build/push from non-main branch. Got '${branch:-unknown}'; checkout main or release/*." >&2
+  exit 1
+}
+
+require_main_or_release_branch
+
 # ── Argument parsing ────────────────────────────────────────────
 VARIANT="${PUBLICATION_BUILD_VARIANT:-public}"
 POSITIONAL=()
@@ -177,10 +192,8 @@ BUILD_STATUS=${PIPESTATUS[0]}
 if [[ ${BUILD_STATUS} -eq 0 ]]; then
   echo "Build OK: ${FOLDER}/${CONTAINER}:${EFFECTIVE_TAG} (variant=${VARIANT})"
   if [[ "${VARIANT}" == "dev" && -n "${REGISTRY}" && -z "${PUBLICATION_TAG_SUFFIX}" ]]; then
-    if [[ -n "${REGISTRY:-}${REGISTRY_HOST:-}" ]]; then
     docker tag "${FOLDER}/${CONTAINER}:${EFFECTIVE_TAG}" \
       "${REGISTRY}/${FOLDER}/${CONTAINER}:${EFFECTIVE_TAG}"
-    fi
     echo "Tagged: ${REGISTRY}/${FOLDER}/${CONTAINER}:${EFFECTIVE_TAG}"
   elif [[ -n "${PUBLICATION_TAG_SUFFIX}" ]]; then
     echo "Registry tag skipped for publication suffix '${PUBLICATION_TAG_SUFFIX}'."

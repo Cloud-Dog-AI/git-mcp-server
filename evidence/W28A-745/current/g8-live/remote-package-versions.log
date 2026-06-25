@@ -1,0 +1,78 @@
+## remote pip show platform packages
+Name: cloud-dog-config
+Version: 0.3.2
+Summary: PS-80 Configuration Management for Cloud-Dog services
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: pyyaml
+Required-by: git-mcp-server
+---
+Name: cloud-dog-api-kit
+Version: 0.12.4
+Summary: PS-20 API toolkit for Cloud-Dog services
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: fastapi, httpx, pydantic, starlette
+Required-by: git-mcp-server
+---
+Name: cloud-dog-idam
+Version: 0.5.0
+Summary: PS-70 Identity & Access Management for Cloud-Dog services
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: alembic, argon2-cffi, cryptography, pyjwt, pyotp, sqlalchemy
+Required-by: git-mcp-server
+---
+Name: cloud_dog_db
+Version: 0.3.0
+Summary: PS-DB platform database foundation package for Cloud-Dog services (SQL + NoSQL/search/wide-column/vector/time-series + source connectors)
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: alembic, pydantic, sqlalchemy
+Required-by: git-mcp-server
+---
+Name: cloud-dog-jobs
+Version: 0.4.1
+Summary: PS-75 Job & Queue Management for Cloud-Dog services
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: httpx, redis, sqlalchemy
+Required-by: git-mcp-server
+---
+Name: cloud_dog_cache
+Version: 0.2.0
+Summary: Platform caching package for LLM and tool call results
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License-Expression: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: 
+Required-by: git-mcp-server
+---
+Name: git-mcp-server
+Version: 0.1.1rc1
+Summary: API-first MCP server for Git repository workflows and branch-scoped file/directory tooling.
+Home-page: 
+Author: Cloud-Dog, Viewdeck Engineering Limited
+Author-email: 
+License: Apache-2.0
+Location: /usr/local/lib/python3.12/site-packages
+Requires: beautifulsoup4, chardet, cloud-dog-api-kit, cloud-dog-cache, cloud-dog-config, cloud-dog-db, cloud-dog-idam, cloud-dog-jobs, cloud-dog-logging, cloud-dog-storage, cryptography, deepdiff, filelock, gitpython, hvac, jsonschema, lxml, markdown-it-py, pydantic, pydantic-settings, pyyaml, ruamel-yaml, typing-extensions, unidiff, uvicorn, websockets
+Required-by: 
+## remote python import package versions
