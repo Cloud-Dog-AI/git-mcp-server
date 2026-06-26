@@ -11,6 +11,25 @@ standard: PS-CLOSEOUT-WARRANTY v1.0
 Per PS-CLOSEOUT-WARRANTY: every row must reach `verdict=PASS` before the lane may close.
 `PENDING` columns are filled by Stream-B (Section B) and Stream-C (Section C).
 
+## W28E-1804C Stream-C Closeout Addendum
+
+Stream-C closed WebUI/E2E/local Docker/preprod/sentinel release proof on 2026-06-25.
+The canonical closeout map is `cloud-dog-ai-platform-standards/working/evidence/W28E-1804C/current/requirements-map.tsv`; every row is PASS and cites raw replay commands/artifacts.
+
+| Warranty area | Verdict | Evidence |
+|---|---|---|
+| Gate0 approval and collision/mainline proof | PASS | `00-reading-proof.md`, `gate0-instruction-compliance.tsv`, `01-collision-mainline-proof.tsv` |
+| WebUI inventory and CRUD/action coverage | PASS | `02-webui-route-page-inventory.tsv`, `05-webui-crud-action-playwright.tsv`, `ui-playwright-full-local-r9.log` |
+| API/MCP/A2A parity | PASS | `06-api-mcp-a2a-evidence.tsv`, `backend-api-mcp-a2a-job-local-docker-r1.log` |
+| IDAM, roles, API keys, and RBAC | PASS | `04-idam-role-surface-proof.tsv`, `backend-admin-crud-parity-r7.log`, `ui-playwright-full-local-r9.log` |
+| Audit/log and job-control proof | PASS | `07-audit-log-proof.tsv`, `08-job-control-proof.tsv`, `backend-audit-unit-r1.log` |
+| PS WebUI style and URL canonical consumption | PASS | `09-ps-webui-style-components-consumption.tsv`, `10-ps-webui-url-canonical-consumption.tsv`, `11-axe-a11y-evidence.tsv` |
+| Local Docker build/run/browser | PASS | `12-local-docker-evidence.tsv`, `local-docker-build-r2.log`, `local-docker-ui-playwright-w28j-conformance-r1.log` |
+| Preprod deploy and digest parity | PASS | `14-preprod-deploy-digest-proof.tsv`, `preprod-terraform-plan-r1.log`, `preprod-terraform-apply-r1.log` |
+| Live target and sibling browser smoke | PASS | `15-live-preprod-browser-smoke.tsv`, `16-sentinel-browser-smoke.tsv`, `live-cookie-browser-smoke-r2.log`, `live-preprod-sentinels-r1.log` |
+| Gitea/GitHub boundary | PASS | `19-no-gitea-github-build-proof.tsv` |
+| Release tags and checksums | PASS | `18-release-tag-proof.tsv`, `CHECKSUMS.sha256`, `CHECKSUMS.verify.txt` |
+
 ## Section A — Requirements + UseCases + Test-Design coverage
 
 _W28E-1804A Stream-A finalised: every Section-A row PASS. `binding_row_present` = YES (FR/CS/NF have @pytest.mark.req tests; UC bound via their FR/CS tests). `cross_surface_covered` = YES (multi-surface design rows) or `internal-only`. `webui_observation_bound` cites the GM-* WebUI observation(s) the row closes (GarysWorkingNotes L2714-2944) or `none`. Section B/C remain to be completed by Stream-B/C._

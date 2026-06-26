@@ -16,45 +16,45 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import time
 from contextlib import asynccontextmanager, suppress
 from ipaddress import IPv4Address
 from pathlib import Path
-import time
 from typing import Any, cast
 from uuid import uuid4
 
 import uvicorn
 from cloud_dog_api_kit import create_app, create_health_router
-from cloud_dog_logging.middleware.audit import AuditMiddleware
 from cloud_dog_api_kit.middleware.timeout import TimeoutMiddleware
+from cloud_dog_idam import RBACEngine
 from cloud_dog_idam.api_keys.hashing import hash_api_key
 from cloud_dog_idam.domain.models import ApiKey
-from fastapi import FastAPI, HTTPException, Request
+from cloud_dog_logging.middleware.audit import AuditMiddleware
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from git_mcp_server.admin.endpoints import build_admin_router
+from git_mcp_server.admin.endpoints import build_admin_router, build_idam_v1_compat_router
 from git_mcp_server.auth.middleware import AuthRuntime, build_auth_runtime, install_auth_middleware
-from git_mcp_server.http_client import build_origin
 from git_mcp_server.flat_demo_keys import (
     FLAT_DEMO_OWNERS,
     register_flat_demo_keys,
     write_flat_demo_keys,
 )
-from git_mcp_server.web_flat_roles import FLAT_TO_TOOL_ROLE, normalise_flat_role
+from git_mcp_server.http_client import build_origin
 from git_mcp_server.jobs.endpoints import build_jobs_router
 from git_mcp_server.logging import configure_service_logging
 from git_mcp_server.ui_endpoints import RuntimeSettingsStore, build_ui_support_router
+from git_mcp_server.web_flat_roles import FLAT_TO_TOOL_ROLE, normalise_flat_role
 from git_mcp_server.workspace_enum_endpoints import build_workspace_enum_router
-from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
 from git_tools.admin.profile_store import ProfileStore
-from git_tools.admin.runtime import AdminRuntime
 from git_tools.admin.roles_service import RolesService
+from git_tools.admin.runtime import AdminRuntime
+from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.config.models import LEGACY_API_BASE_PATH
 from git_tools.db import database_health, initialise_database, shutdown_database
 from git_tools.files.io import store_host_text
 from git_tools.jobs.runtime import JobsRuntime
-from cloud_dog_idam import RBACEngine
 from git_tools.security.rbac import AccessDeniedError, require_tool_access
 from git_tools.tools.registry import ToolRegistry
 from git_tools.workspaces.gc import workspace_gc_daemon
@@ -153,9 +153,7 @@ def _a2a_websocket_authorised(websocket: WebSocket, auth_runtime: AuthRuntime) -
     if validate_a2a_bearer_token(auth_header, auth_runtime):
         return True
     query_token = websocket.query_params.get("token", "").strip()
-    if query_token and auth_runtime.api_key_manager.validate(query_token) is not None:
-        return True
-    return False
+    return bool(query_token and auth_runtime.api_key_manager.validate(query_token) is not None)
 
 
 def _parse_cli_env_files() -> list[str] | None:
@@ -321,7 +319,12 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     legacy_api_base_path = LEGACY_API_BASE_PATH
     a2a_base_path = config.a2a_server.base_path
     runtime_cfg = config.runtime
-    configure_service_logging(raw_snapshot, service_name="git-mcp-server", server_id=config.runtime.server_id, surface="api")
+    configure_service_logging(
+        raw_snapshot,
+        service_name="git-mcp-server",
+        server_id=config.runtime.server_id,
+        surface="api",
+    )
 
     db_runtime = initialise_database(config=raw_snapshot, env_files=env_files)
 
@@ -400,35 +403,46 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     )
     # Bootstrap seed users and groups so the UI DataTable has rows to display.
     _bootstrap_users = [
-        {"user_id": "admin", "username": "admin", "email": "admin@example.invalid", "group_ids": ["operators", "admins"]},
-        {"user_id": "operator1", "username": "operator1", "email": "operator1@example.invalid", "group_ids": ["operators"]},
+        {
+            "user_id": "admin",
+            "username": "admin",
+            "email": "admin@example.invalid",
+            "group_ids": ["operators", "admins"],
+        },
+        {
+            "user_id": "operator1",
+            "username": "operator1",
+            "email": "operator1@example.invalid",
+            "group_ids": ["operators"],
+        },
         {"user_id": "viewer1", "username": "viewer1", "email": "viewer1@example.invalid", "group_ids": ["viewers"]},
     ]
     _bootstrap_groups = [
-        {"group_id": "operators", "description": "Default operators group", "roles": ["operator"], "members": ["admin", "operator1"]},
+        {
+            "group_id": "operators",
+            "description": "Default operators group",
+            "roles": ["operator"],
+            "members": ["admin", "operator1"],
+        },
         {"group_id": "admins", "description": "Platform administrators", "roles": ["admin"], "members": ["admin"]},
         {"group_id": "viewers", "description": "Read-only viewers", "roles": ["viewer"], "members": ["viewer1"]},
     ]
     for _grp in _bootstrap_groups:
-        try:
+        with suppress(ValueError, KeyError):
             admin_runtime.create_group(
                 group_id=_grp["group_id"],
                 description=_grp["description"],
                 roles=_grp["roles"],
                 members=_grp["members"],
             )
-        except (ValueError, KeyError):
-            pass  # already exists
     for _usr in _bootstrap_users:
-        try:
+        with suppress(ValueError, KeyError):
             admin_runtime.create_user(
                 user_id=_usr["user_id"],
                 username=_usr["username"],
                 email=_usr["email"],
                 group_ids=_usr["group_ids"],
             )
-        except (ValueError, KeyError):
-            pass  # already exists
     # Grant admin role binding to the bootstrap admin user.
     role_bindings.setdefault("admin", set()).add("admin")
 
@@ -452,10 +466,8 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         auth_runtime.api_key_manager, role_bindings, config.git.api_key
     )
     for _owner, _flat, _roles in FLAT_DEMO_OWNERS:
-        try:
+        with suppress(ValueError, KeyError):
             admin_runtime.create_user(user_id=_owner, username=_owner, email=f"{_owner}@example.invalid")
-        except (ValueError, KeyError):
-            pass  # already exists
     try:
         _seed_file = config.runtime.seed_key_file.strip()
         _keys_parent = (
@@ -482,7 +494,11 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     # GM3 (W28C-1705): per-tool-call typed audit. Reuse the app's already-configured audit
     # sink (configure_logging=False) so each git tool call emits an AuditEvent tying the
     # resolved principal -> operation -> outcome -> commit_sha.
-    audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
+    audit_writer = AuditWriter(
+        tool_audit_jsonl_path(config.workspace.base_dir),
+        service_instance=config.runtime.server_id,
+        configure_logging=False,
+    )
     tool_registry = ToolRegistry(
         workspace_manager,
         admin_runtime=admin_runtime,
@@ -526,19 +542,35 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         ),
         include_in_schema=False,
     )
+    app.include_router(
+        build_idam_v1_compat_router(
+            admin_runtime,
+            auth_runtime=auth_runtime,
+            prefix=f"{api_base_path}/idam/v1",
+        ),
+        include_in_schema=False,
+    )
+    app.include_router(
+        build_idam_v1_compat_router(
+            admin_runtime,
+            auth_runtime=auth_runtime,
+            prefix=f"{legacy_api_base_path}/idam/v1",
+        ),
+        include_in_schema=False,
+    )
     # W28A-876: mount the canonical SHARED cloud_dog_idam idam_v1_router (resource-registry +
     # rbac-bindings) at the SAME bases as the admin router (api_base_path + legacy_api_base_path)
     # so the RBAC page resolves /v1/idam/v1/* and /api/v1/idam/v1/*. ONE estate-wide implementation.
     try:
         from cloud_dog_idam.api.fastapi.router import (
             idam_v1_router as _idam_v1_router,
+        )
+        from cloud_dog_idam.api.fastapi.router import (
             set_idam_v1_engine as _set_idam_v1_engine,
         )
 
-        try:
+        with suppress(Exception):
             _set_idam_v1_engine(getattr(auth_runtime, "engine", None))
-        except Exception:
-            pass
         for _ipfx in {api_base_path, legacy_api_base_path}:
             if _ipfx:
                 app.include_router(_idam_v1_router, prefix=_ipfx, include_in_schema=False)

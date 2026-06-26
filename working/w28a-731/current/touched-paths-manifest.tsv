@@ -1,5 +1,0 @@
-path	repo	reason	created_or_modified_by_lane	commit_hash
-src/git_mcp_server/web_server.py	git-mcp-server	read-write/read-only in-code demo defaults	YES	c531808
-defaults.yaml	git-mcp-server	RW/RO password default empty so in-code fallback fires	YES	e486098
-apps/git-mcp/tests/e2e/w28a731-flat-login.spec.ts	cloud-dog-ai-ui-monorepo	G8 spec api-key->username/password	YES	3d6f6d1
-working/w28a-731/current/	git-mcp-server	lane evidence pack	YES	EVIDENCE-COMMIT

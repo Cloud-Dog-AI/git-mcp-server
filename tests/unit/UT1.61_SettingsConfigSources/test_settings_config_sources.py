@@ -18,11 +18,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from git_mcp_server import config_sources
 from git_mcp_server.api_server import create_api_app
-import pytest
+from git_mcp_server.ui_endpoints import _mask_runtime_config
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +97,31 @@ def test_env_override_of_literal_default_is_env() -> None:
     assert sources["runtime.mode"]["source"] == "env"
 
 
+# FR-1.18 traceability marker for existing git-mcp coverage.
+@pytest.mark.UT
+@pytest.mark.mcp
+@pytest.mark.req("FR-017")  # W28E-1804A semantic rebind
+def test_secret_mapping_source_path_matches_masked_config_shape() -> None:
+    effective = {
+        "storage": {
+            "https_credentials": {
+                "url": "https://git.example.test/project.git",
+                "token": "SECRET-TOKEN",
+            }
+        },
+        "api_server": {"port": 19031},
+    }
+
+    masked = _mask_runtime_config(effective)
+    sources, counts = config_sources.build_config_sources(effective, {}, {})
+
+    assert masked["storage"]["https_credentials"] == "****"
+    assert sources["storage.https_credentials"] == {"source": "vault", "secret": True}
+    assert "storage.https_credentials.url" not in sources
+    assert "storage.https_credentials.token" not in sources
+    assert counts["total"] == 2
+
+
 # ---------------------------------------------------------------------------
 # Integration: live endpoints via the assembled API app
 # ---------------------------------------------------------------------------
@@ -117,7 +143,6 @@ def test_settings_config_endpoint_returns_masked_tree(tmp_path: Path, monkeypatc
     tree = resp.json()["result"]
     assert isinstance(tree, dict) and tree, "effective config tree must be non-empty"
     # Secret leaves are masked, never raw.
-    serialized = resp.text
     web_login = tree.get("web_login") or {}
     if "password" in web_login:
         assert web_login["password"] in ("****", "", None, [], {})

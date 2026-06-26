@@ -14,15 +14,16 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from math import ceil
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 from git_mcp_server.auth.middleware import AuthRuntime
-from git_tools.admin.runtime import AdminRuntime
 from git_tools.admin.roles_service import RolesService, RolesServiceError
+from git_tools.admin.runtime import AdminRuntime
 from git_tools.workspaces.manager import WorkspaceManager
-
 
 _ROLE_PERMISSIONS = {
     "admin": {"*"},
@@ -57,6 +58,34 @@ def _envelope(
         "errors": payload_errors,
         "meta": {},
     }
+
+
+def _list_value(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _ttl_days_from_body(body: dict[str, Any]) -> int | None:
+    if body.get("ttl_days") is not None:
+        return int(body["ttl_days"])
+    expires_at = str(body.get("expires_at") or "").strip()
+    if not expires_at:
+        return None
+    try:
+        target = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if target.tzinfo is None:
+        target = target.replace(tzinfo=timezone.utc)
+    seconds = (target - datetime.now(timezone.utc)).total_seconds()
+    return max(1, ceil(seconds / 86400))
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _actor_from_request(request: Request, auth_runtime: AuthRuntime | None) -> str:
@@ -275,17 +304,33 @@ def build_admin_router(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    def _create_user(user_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        return admin_runtime.create_user(
+            user_id=user_id,
+            username=str(body.get("username") or body.get("name") or user_id),
+            email=str(body.get("email", "")),
+            group_ids=_list_value(body.get("group_ids") if "group_ids" in body else body.get("groups")),
+        )
+
+    @router.post("/users")
+    def create_user_collection(body: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Create a managed user from the shared IDAM collection route."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        user_id = str(body.get("user_id") or body.get("username") or "").strip()
+        if not user_id:
+            raise HTTPException(status_code=400, detail="username is required")
+        try:
+            result = _create_user(user_id, body)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _envelope(result=result)
+
     @router.post("/users/{user_id}")
     def create_user(user_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
         """Create a managed user."""
         _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
         try:
-            result = admin_runtime.create_user(
-                user_id=user_id,
-                username=str(body.get("username", user_id)),
-                email=str(body.get("email", "")),
-                group_ids=list(body.get("group_ids", [])),
-            )
+            result = _create_user(user_id, body)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return _envelope(result=result)
@@ -299,8 +344,8 @@ def build_admin_router(
                 user_id=user_id,
                 username=str(body.get("username", user_id)),
                 email=str(body.get("email", "")),
-                group_ids=list(body.get("group_ids", [])),
-                status=str(body.get("status", "active")),
+                group_ids=_list_value(body.get("group_ids") if "group_ids" in body else body.get("groups")),
+                status=str(body.get("status") or ("disabled" if body.get("disabled") else "active")),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -331,17 +376,33 @@ def build_admin_router(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    def _create_group(group_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        return admin_runtime.create_group(
+            group_id=group_id,
+            description=str(body.get("description", "")),
+            roles=_list_value(body.get("roles")),
+            members=_list_value(body.get("members") if "members" in body else body.get("member_user_ids")),
+        )
+
+    @router.post("/groups")
+    def create_group_collection(body: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Create a managed group from the shared IDAM collection route."""
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        group_id = str(body.get("group_id") or body.get("name") or "").strip()
+        if not group_id:
+            raise HTTPException(status_code=400, detail="name is required")
+        try:
+            result = _create_group(group_id, body)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _envelope(result=result)
+
     @router.post("/groups/{group_id}")
     def create_group(group_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
         """Create a managed group."""
         _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
         try:
-            result = admin_runtime.create_group(
-                group_id=group_id,
-                description=str(body.get("description", "")),
-                roles=list(body.get("roles", [])),
-                members=list(body.get("members", [])),
-            )
+            result = _create_group(group_id, body)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return _envelope(result=result)
@@ -354,8 +415,8 @@ def build_admin_router(
             result = admin_runtime.update_group(
                 group_id=group_id,
                 description=str(body.get("description", "")),
-                roles=list(body.get("roles", [])),
-                members=list(body.get("members", [])),
+                roles=_list_value(body.get("roles")),
+                members=_list_value(body.get("members") if "members" in body else body.get("member_user_ids")),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -390,13 +451,25 @@ def build_admin_router(
     def create_api_key(body: dict[str, Any], request: Request) -> dict[str, Any]:
         """Create a managed API key."""
         _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
-        result = admin_runtime.create_api_key(
-            name=str(body.get("name", "")).strip() or str(body.get("owner_user_id", "managed-key")),
-            owner_user_id=str(body.get("owner_user_id", "managed-user")).strip() or "managed-user",
-            capabilities=list(body.get("capabilities", [])),
-            ttl_days=int(body["ttl_days"]) if body.get("ttl_days") is not None else None,
+        owner_user_id = (
+            str(body.get("owner_user_id") or body.get("user_id") or "managed-user").strip() or "managed-user"
         )
-        return _envelope(result=result)
+        capabilities = _list_value(
+            body.get("capabilities")
+            if "capabilities" in body
+            else body.get("groups")
+            if "groups" in body
+            else body.get("scopes")
+        )
+        result = admin_runtime.create_api_key(
+            name=str(body.get("name", "")).strip() or str(body.get("label", "")).strip() or owner_user_id,
+            owner_user_id=owner_user_id,
+            capabilities=capabilities,
+            ttl_days=_ttl_days_from_body(body),
+        )
+        shared_payload = dict(result)
+        shared_payload["api_key"] = {**result, "key": result.get("raw_key", "")}
+        return _envelope(result=shared_payload)
 
     @router.put("/api-keys/{key_id}")
     def update_api_key(key_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
@@ -406,11 +479,24 @@ def build_admin_router(
             result = admin_runtime.update_api_key(
                 key_id,
                 name=str(body["name"]).strip() if "name" in body and body.get("name") is not None else None,
-                capabilities=list(body["capabilities"]) if "capabilities" in body else None,
+                capabilities=_list_value(
+                    body.get("capabilities")
+                    if "capabilities" in body
+                    else body.get("groups")
+                    if "groups" in body
+                    else body.get("scopes")
+                )
+                if any(key in body for key in ("capabilities", "groups", "scopes"))
+                else None,
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return _envelope(result=result)
+
+    @router.post("/api-keys/{key_id}/revoke")
+    def revoke_api_key_post(key_id: str, request: Request) -> dict[str, Any]:
+        """Revoke a managed API key via the shared IDAM action route."""
+        return revoke_api_key(key_id, request)
 
     @router.delete("/api-keys/{key_id}")
     def revoke_api_key(key_id: str, request: Request) -> dict[str, Any]:
@@ -519,5 +605,81 @@ def build_admin_router(
         except RolesServiceError as exc:
             raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
         return _envelope(result=result)
+
+    return router
+
+
+def build_idam_v1_compat_router(
+    admin_runtime: AdminRuntime,
+    *,
+    auth_runtime: AuthRuntime | None = None,
+    prefix: str = "/idam/v1",
+) -> APIRouter:
+    """Build git-mcp compatibility routes consumed by the shared IDAM RBAC page."""
+    router = APIRouter(prefix=prefix, tags=["idam"])
+    bindings: dict[int, dict[str, Any]] = {}
+    next_id = 1
+
+    @router.get("/resource-registry")
+    def resource_registry(request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        return {
+            "resource_types": [
+                {
+                    "type": "system",
+                    "label": "System",
+                    "permissions": ["read", "write", "admin"],
+                    "resources": ["system"],
+                    "list_endpoint": "/idam/v1/resource-registry",
+                }
+            ]
+        }
+
+    @router.get("/rbac-bindings")
+    def list_rbac_bindings(request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        return {"bindings": list(bindings.values())}
+
+    @router.post("/rbac-bindings")
+    def create_rbac_binding(body: dict[str, Any], request: Request) -> dict[str, Any]:
+        nonlocal next_id
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        binding_id = next_id
+        next_id += 1
+        subject_type = str(body.get("subject_type") or "user")
+        subject = str(body.get("subject") or body.get("subject_id") or "").strip()
+        resource_type = str(body.get("resource_type") or "system")
+        resource = str(body.get("resource") or body.get("resource_id") or "system")
+        permission = str(body.get("permission") or "read")
+        row = {
+            "id": binding_id,
+            "subject_type": subject_type,
+            "subject": subject,
+            "resource_type": resource_type,
+            "resource": resource,
+            "permission": permission,
+            "granted_by": _actor_from_request(request, auth_runtime),
+            "granted_at": _now_iso(),
+        }
+        bindings[binding_id] = row
+        return row
+
+    @router.put("/rbac-bindings/{binding_id}")
+    def update_rbac_binding(binding_id: int, body: dict[str, Any], request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        row = bindings.get(binding_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"Unknown RBAC binding: {binding_id}")
+        if body.get("permission") is not None:
+            row["permission"] = str(body["permission"])
+        return row
+
+    @router.delete("/rbac-bindings/{binding_id}")
+    def delete_rbac_binding(binding_id: int, request: Request) -> dict[str, Any]:
+        _require_admin(request, auth_runtime, admin_runtime, accepted_capabilities={"admin.identity"})
+        existed = bindings.pop(binding_id, None) is not None
+        if not existed:
+            raise HTTPException(status_code=404, detail=f"Unknown RBAC binding: {binding_id}")
+        return {"id": binding_id, "deleted": True}
 
     return router

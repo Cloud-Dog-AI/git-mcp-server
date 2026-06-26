@@ -3,8 +3,8 @@ template-id: T-TST
 template-version: 1.1
 applies-to: docs/TESTS.md
 project: git-mcp-server
-doc-last-updated: 2026-06-23
-doc-git-commit: c12b180e687b0a9dfac728161b44a963a12359ac
+doc-last-updated: 2026-06-25
+doc-git-commit: 342c8c1b336389e2f3afa5e5400ad3ed9b5d33cd
 doc-git-branch: main
 doc-age-policy: 90d
 doc-conformance-stamp: 2026-06-12T16:36:28Z
@@ -26,6 +26,25 @@ python3 -m pytest tests/system --env tests/env-ST -v
 python3 -m pytest tests/integration --env tests/env-IT -v
 python3 -m pytest tests/application --env tests/env-AT -v
 ```
+
+## W28E-1804C 1.0RC01 Closeout Commands
+
+The 1.0RC01 Stream-C closeout adds WebUI/E2E, local Docker, preprod, and sibling-sentinel replay evidence under
+`cloud-dog-ai-platform-standards/working/evidence/W28E-1804C/current/`.
+
+| Surface | Command | Raw evidence |
+|---|---|---|
+| WebUI full local E2E | `npm --prefix apps/git-mcp run e2e` | `test-logs/ui-playwright-full-local-r9.log` (`109 passed, 9 skipped, 0 failed`) |
+| WebUI focused adoption | `npm --prefix apps/git-mcp run e2e -- tests/w28a458/ui-adopt.spec.ts` | `test-logs/ui-playwright-w28a458-r5.log` (`15 passed`) |
+| UI static checks | `npm --prefix apps/git-mcp run lint`, `typecheck`, `test`, `build` | `ui-lint-r12.log`, `ui-typecheck-r16.log`, `ui-vitest-r5.log`, `ui-build-r5.log` |
+| Backend focused runtime | `python3 -m pytest ...UT1.56...UT1.70...UT1.54...UT1.61` | `backend-focused-unit-r6.log` (`41 passed`) |
+| Backend admin parity | `python3 -m pytest --env IT tests/integration/IT1.14_AdminCrudParity` | `backend-admin-crud-parity-r7.log` (`5 passed`) |
+| Backend API/MCP/A2A/jobs on Docker | `python3 -m pytest --env tests/env-IT-local-docker IT1.5 IT1.6 IT1.11 IT1.62` | `backend-api-mcp-a2a-job-local-docker-r1.log` (`5 passed`) |
+| Audit unit proof | `TEST_OPTIONAL_GITLAB_TOKEN=w28e1804c-test-token python3 -m pytest --env UT tests/unit/UT1.67_PerToolCallAudit` | `backend-audit-unit-r1.log` (`7 passed`) |
+| Local Docker browser proof | `E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:19032 ... playwright test` | `local-docker-ui-playwright-health-r1.log`, `local-docker-ui-playwright-w28j-conformance-r1.log` (`12 passed total`) |
+| Live preprod browser proof | `E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=https://gitmcpserver0.cloud-dog.net ... playwright test` | `live-preprod-ui-playwright-r2.log` (`12 passed`) |
+| Live cookie auth proof | `node live-cookie-browser-smoke-w28e1804c.mjs` | `live-cookie-browser-smoke-r2.log` (`LIVE_COOKIE_BROWSER_SMOKE_RESULT=PASS`) |
+| Sibling sentinel proof | `E2E_SKIP_WEBSERVER=1 playwright test tests/e2e/w28a731-sentinels.spec.ts` | `live-preprod-sentinels-r1.log` (`4 passed`) |
 
 ## Numeric Automated Inventory
 

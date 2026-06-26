@@ -1,9 +1,0 @@
-
-Running 4 tests using 1 worker
-
-  ✓  1 [chromium] › tests/e2e/w28a731-sentinels.spec.ts:44:3 › sentinel: chatclient0 SPA renders (no blank, no JS errors) after git-mcp deploy (1.2s)
-  ✓  2 [chromium] › tests/e2e/w28a731-sentinels.spec.ts:44:3 › sentinel: expertagent0 SPA renders (no blank, no JS errors) after git-mcp deploy (901ms)
-  ✓  3 [chromium] › tests/e2e/w28a731-sentinels.spec.ts:44:3 › sentinel: notificationagent0 SPA renders (no blank, no JS errors) after git-mcp deploy (1.0s)
-  ✓  4 [chromium] › tests/e2e/w28a731-sentinels.spec.ts:44:3 › sentinel: filemcpserver0 SPA renders (no blank, no JS errors) after git-mcp deploy (912ms)
-
-  4 passed (6.9s)

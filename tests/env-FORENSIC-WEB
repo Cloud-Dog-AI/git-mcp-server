@@ -1,6 +1,0 @@
-CLOUD_DOG_WEB_LOGIN_USERNAME=admin
-CLOUD_DOG_WEB_LOGIN_PASSWORD=OrangeRiverTable
-CLOUD_DOG__STORAGE__DB__URL=sqlite:///./forensic-data/git_mcp.db
-CLOUD_DOG__STORAGE__AUDIT__PATH=./forensic-data/audit/audit.jsonl
-CLOUD_DOG__STORAGE__EVENTS__PATH=./forensic-data/events/a2a_config.jsonl
-CLOUD_DOG__WORKSPACE__BASE_DIR=./forensic-data/workspaces

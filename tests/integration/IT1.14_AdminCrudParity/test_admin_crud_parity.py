@@ -14,13 +14,14 @@
 
 from __future__ import annotations
 
-import os
 from uuid import uuid4
 
 import httpx
+import pytest
 
 from tests.helpers import api_url
-import pytest
+
+
 @pytest.mark.IT
 @pytest.mark.mcp
 @pytest.mark.req("FR-012")  # W28E-1804A semantic rebind
@@ -106,7 +107,11 @@ def test_admin_http_crud_contract(
     assert updated_key.json()["result"]["name"] == "cfg-http-key-updated"
     assert updated_key.json()["result"]["capabilities"] == ["tools:read"]
 
-    revoked_key = httpx.delete(api_url(base_url, f"/admin/api-keys/{key_payload['key_id']}"), headers=headers, timeout=10.0)
+    revoked_key = httpx.delete(
+        api_url(base_url, f"/admin/api-keys/{key_payload['key_id']}"),
+        headers=headers,
+        timeout=10.0,
+    )
     assert revoked_key.status_code == 200
 
     revoked_use = httpx.get(api_url(base_url, "/tools"), headers={"x-api-key": raw_key}, timeout=10.0)
@@ -116,6 +121,103 @@ def test_admin_http_crud_contract(
     assert deleted_group.status_code == 200
     deleted_user = httpx.delete(api_url(base_url, f"/admin/users/{user_id}"), headers=headers, timeout=10.0)
     assert deleted_user.status_code == 200
+
+
+@pytest.mark.IT
+@pytest.mark.mcp
+@pytest.mark.req("FR-012")  # W28E-1804A semantic rebind
+def test_admin_http_shared_idam_collection_contract(
+    integration_server: dict[str, str | bool],
+    api_key: str,
+) -> None:
+    """Requirements: FR-15, FR-17, CFG-08, CFG-09, CFG-10, CFG-11."""
+    base_url = str(integration_server["base_url"])
+    headers = {"x-api-key": api_key}
+    suffix = uuid4().hex[:8]
+    user_id = f"cfg-idam-user-{suffix}"
+    group_id = f"cfg-idam-group-{suffix}"
+
+    created_group = httpx.post(
+        api_url(base_url, "/admin/groups"),
+        headers=headers,
+        json={"name": group_id, "description": "Shared IDAM group", "member_user_ids": []},
+        timeout=10.0,
+    )
+    assert created_group.status_code == 200, created_group.text
+    group_payload = created_group.json()["result"]
+    assert group_payload["group_id"] == group_id
+    assert group_payload["name"] == group_id
+    assert group_payload["member_count"] == 0
+
+    created_user = httpx.post(
+        api_url(base_url, "/admin/users"),
+        headers=headers,
+        json={"username": user_id, "email": f"{user_id}@example.test", "groups": [group_id]},
+        timeout=10.0,
+    )
+    assert created_user.status_code == 200, created_user.text
+    user_payload = created_user.json()["result"]
+    assert user_payload["user_id"] == user_id
+    assert user_payload["groups"] == [group_id]
+    assert user_payload["disabled"] is False
+
+    created_key = httpx.post(
+        api_url(base_url, "/admin/api-keys"),
+        headers=headers,
+        json={"name": "cfg-idam-key", "user_id": user_id, "groups": ["tools:read", "tools:write"]},
+        timeout=10.0,
+    )
+    assert created_key.status_code == 200, created_key.text
+    key_payload = created_key.json()["result"]
+    assert key_payload["api_key_id"] == key_payload["key_id"]
+    assert key_payload["user_id"] == user_id
+    assert key_payload["groups"] == ["tools:read", "tools:write"]
+    assert key_payload["api_key"]["key"] == key_payload["raw_key"]
+
+    revoked_key = httpx.post(
+        api_url(base_url, f"/admin/api-keys/{key_payload['api_key_id']}/revoke"),
+        headers=headers,
+        timeout=10.0,
+    )
+    assert revoked_key.status_code == 200, revoked_key.text
+
+    registry = httpx.get(api_url(base_url, "/idam/v1/resource-registry"), headers=headers, timeout=10.0)
+    assert registry.status_code == 200, registry.text
+    resource_types = registry.json()["resource_types"]
+    assert any(item["type"] == "system" for item in resource_types)
+
+    created_binding = httpx.post(
+        api_url(base_url, "/idam/v1/rbac-bindings"),
+        headers=headers,
+        json={
+            "subject_type": "user",
+            "subject": user_id,
+            "resource_type": "system",
+            "resource": "system",
+            "permission": "admin",
+        },
+        timeout=10.0,
+    )
+    assert created_binding.status_code == 200, created_binding.text
+    binding_payload = created_binding.json()
+    assert binding_payload["subject"] == user_id
+    assert binding_payload["permission"] == "admin"
+
+    listed_bindings = httpx.get(api_url(base_url, "/idam/v1/rbac-bindings"), headers=headers, timeout=10.0)
+    assert listed_bindings.status_code == 200, listed_bindings.text
+    assert any(item["id"] == binding_payload["id"] for item in listed_bindings.json()["bindings"])
+
+    deleted_binding = httpx.delete(
+        api_url(base_url, f"/idam/v1/rbac-bindings/{binding_payload['id']}"),
+        headers=headers,
+        timeout=10.0,
+    )
+    assert deleted_binding.status_code == 200, deleted_binding.text
+
+    deleted_user = httpx.delete(api_url(base_url, f"/admin/users/{user_id}"), headers=headers, timeout=10.0)
+    assert deleted_user.status_code == 200, deleted_user.text
+    deleted_group = httpx.delete(api_url(base_url, f"/admin/groups/{group_id}"), headers=headers, timeout=10.0)
+    assert deleted_group.status_code == 200, deleted_group.text
 @pytest.mark.IT
 @pytest.mark.mcp
 @pytest.mark.req("FR-012")  # W28E-1804A semantic rebind
@@ -228,7 +330,11 @@ def test_tool_http_requires_resolved_reader_role_for_repo_access(
     denied = httpx.post(
         api_url(base_url, "/tools/repo_open"),
         headers=restricted_headers,
-        json={"profile": profile_name, "session_id": f"cfg-denied-{uuid4().hex[:8]}", "ref": {"type": "branch", "name": "main"}},
+        json={
+            "profile": profile_name,
+            "session_id": f"cfg-denied-{uuid4().hex[:8]}",
+            "ref": {"type": "branch", "name": "main"},
+        },
         timeout=30.0,
     )
     assert denied.status_code == 403, denied.text
@@ -245,7 +351,11 @@ def test_tool_http_requires_resolved_reader_role_for_repo_access(
     allowed_open = httpx.post(
         api_url(base_url, "/tools/repo_open"),
         headers=restricted_headers,
-        json={"profile": profile_name, "session_id": f"cfg-allowed-{uuid4().hex[:8]}", "ref": {"type": "branch", "name": "main"}},
+        json={
+            "profile": profile_name,
+            "session_id": f"cfg-allowed-{uuid4().hex[:8]}",
+            "ref": {"type": "branch", "name": "main"},
+        },
         timeout=60.0,
     )
     assert allowed_open.status_code == 200, allowed_open.text

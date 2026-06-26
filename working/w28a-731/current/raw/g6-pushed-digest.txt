@@ -1,2 +1,0 @@
-registry.cloud-dog.net:443/cloud-dog/git-mcp-server@sha256:30288f971eb174b691f87576dd633a2493d831335cc8ac2ec8f00c7fbc8c9f02
-e486098b94f89acdd0ad556dc2fc9239da9d56e2 W28A-731-R5: read-write/read-only web_login passwords default EMPTY in defaults.yaml so the in-code demo fallback (BlueRiverChair/GreenRiverDesk) fires — prior ${VAR:''} resolved to a literal '' (non-empty), blocking RW/RO login

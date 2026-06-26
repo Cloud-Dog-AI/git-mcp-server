@@ -416,6 +416,8 @@ def _configure_vault_gitlab_credentials(remote_url: str) -> tuple[bool, str]:
     gitlab_url = str(gitlab_cfg.get("url", "")).strip()
     token = str(gitlab_cfg.get("developer_token", "") or gitlab_cfg.get("maintainer_token", "")).strip()
     if not gitlab_url or not token:
+        if parsed_remote.hostname in {"gitea.cloud-dog.net", "github.com"}:
+            return True, "anonymous: public boundary fixture; Vault gitlab credentials not required"
         return False, "Vault gitlab url/token missing"
 
     parsed_vault_gitlab = urlparse(gitlab_url)

@@ -3,11 +3,11 @@ template-id: T-RCM
 template-version: 1.0
 applies-to: docs/REQ-COVERAGE.md
 project: 
-doc-last-updated: 2026-06-23T14:34:59.089666+00:00
-doc-git-commit: c12b180e687b0a9dfac728161b44a963a12359ac
-doc-git-branch: w28e-1804a-stream-a
+doc-last-updated: 2026-06-25T05:40:27Z
+doc-git-commit: 342c8c1b336389e2f3afa5e5400ad3ed9b5d33cd
+doc-git-branch: main
 doc-age-policy: 30d
-doc-conformance-stamp: 2026-06-23T14:34:59.089666+00:00
+doc-conformance-stamp: 2026-06-25T05:40:27Z
 generated-by: scripts/generate-req-coverage.py
 ---
 
@@ -15,6 +15,20 @@ generated-by: scripts/generate-req-coverage.py
 
 > **Template version:** T-RCM v1.0 — script-generated, do not hand-edit.
 > Re-generate via: `scripts/generate-req-coverage.py `
+
+## W28E-1804C 1.0RC01 Closeout Overlay
+
+The generated matrix remains the requirements binding baseline. Stream-C closeout is recorded in
+`cloud-dog-ai-platform-standards/working/evidence/W28E-1804C/current/requirements-map.tsv`, where every lane row is PASS and cites raw replay artifacts.
+
+| Coverage area | Status | Raw evidence |
+|---|---|---|
+| WebUI route/page/modal/form/table/action inventory | PASS | `02-webui-route-page-inventory.tsv`, `05-webui-crud-action-playwright.tsv`, `ui-playwright-full-local-r9.log` |
+| API/MCP/A2A parity | PASS | `06-api-mcp-a2a-evidence.tsv`, `backend-api-mcp-a2a-job-local-docker-r1.log`, `ui-playwright-full-local-r9.log` |
+| IDAM/roles/API keys | PASS | `04-idam-role-surface-proof.tsv`, `backend-admin-crud-parity-r7.log`, `ui-playwright-full-local-r9.log` |
+| Audit/log correlation | PASS | `07-audit-log-proof.tsv`, `backend-audit-unit-r1.log`, `ui-playwright-full-local-r9.log` |
+| Job control | PASS | `08-job-control-proof.tsv`, `backend-api-mcp-a2a-job-local-docker-r1.log`, `ui-playwright-full-local-r9.log` |
+| Local Docker + preprod deployment | PASS | `12-local-docker-evidence.tsv`, `14-preprod-deploy-digest-proof.tsv`, `15-live-preprod-browser-smoke.tsv`, `16-sentinel-browser-smoke.tsv` |
 
 ## 1. Latest generation
 

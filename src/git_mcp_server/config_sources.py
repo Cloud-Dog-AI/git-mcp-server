@@ -58,6 +58,9 @@ def _leaf_key(path: str) -> str:
 def flatten(value: Any, parent: str = "") -> dict[str, Any]:
     """Flatten a config tree to ``{dot.path[i]: scalar}`` (JsonExplorer scheme, no root)."""
     out: dict[str, Any] = {}
+    if parent and is_secret_key(_leaf_key(parent)) and isinstance(value, (Mapping, list, tuple)):
+        out[parent] = value
+        return out
     if isinstance(value, Mapping):
         for key, item in value.items():
             path = f"{parent}.{key}" if parent else str(key)

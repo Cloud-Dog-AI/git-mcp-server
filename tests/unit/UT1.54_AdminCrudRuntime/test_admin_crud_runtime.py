@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
-from git_tools.admin.runtime import AdminRuntime
 import pytest
+
+from git_tools.admin.runtime import AdminRuntime
+
+
 @pytest.mark.UT
 @pytest.mark.mcp
 @pytest.mark.req("FR-013")  # W28E-1804A semantic rebind
@@ -46,6 +49,8 @@ def test_admin_runtime_manages_profiles_users_groups_and_api_keys() -> None:
     )
     assert user["user_id"] == "cfg-user"
     assert user["group_ids"] == ["cfg-group"]
+    assert user["groups"] == ["cfg-group"]
+    assert user["disabled"] is False
 
     group = runtime.create_group(
         group_id="cfg-group",
@@ -55,10 +60,14 @@ def test_admin_runtime_manages_profiles_users_groups_and_api_keys() -> None:
     )
     assert group["roles"] == ["admin", "writer"]
     assert group["members"] == ["cfg-user"]
+    assert group["name"] == "cfg-group"
+    assert group["member_count"] == 1
 
     user_after_group = runtime.read_user("cfg-user")
     assert user_after_group["group_ids"] == ["cfg-group"]
+    assert user_after_group["groups"] == ["cfg-group"]
     assert user_after_group["roles"] == ["admin", "writer"]
+    assert user_after_group["is_system_admin"] is True
 
     api_key = runtime.create_api_key(
         name="cfg-runtime-key",
@@ -67,20 +76,28 @@ def test_admin_runtime_manages_profiles_users_groups_and_api_keys() -> None:
     )
     assert api_key["name"] == "cfg-runtime-key"
     assert api_key["owner_user_id"] == "cfg-user"
+    assert api_key["user_id"] == "cfg-user"
+    assert api_key["api_key_id"] == api_key["key_id"]
     assert api_key["capabilities"] == ["admin.profile", "admin.identity"]
+    assert api_key["groups"] == ["admin.profile", "admin.identity"]
+    assert api_key["scopes"] == ["admin.profile", "admin.identity"]
+    assert api_key["disabled"] is False
     assert api_key["raw_key"]
 
     listed_keys = runtime.list_api_keys(owner_user_id="cfg-user")
     assert len(listed_keys) == 1
     assert listed_keys[0]["key_id"] == api_key["key_id"]
+    assert listed_keys[0]["api_key_id"] == api_key["key_id"]
 
     updated_key = runtime.update_api_key(api_key["key_id"], name="cfg-runtime-key-updated", capabilities=["tools:read"])
     assert updated_key["name"] == "cfg-runtime-key-updated"
     assert updated_key["capabilities"] == ["tools:read"]
+    assert updated_key["groups"] == ["tools:read"]
 
     revoked = runtime.revoke_api_key(api_key["key_id"])
     assert revoked == {"key_id": api_key["key_id"], "revoked": True}
     assert runtime.read_api_key(api_key["key_id"])["status"] == "revoked"
+    assert runtime.read_api_key(api_key["key_id"])["disabled"] is True
 
     deleted_group = runtime.delete_group("cfg-group")
     assert deleted_group == {"group_id": "cfg-group", "deleted": True}

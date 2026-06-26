@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
+from pathlib import Path
 from typing import Any
 
 from cloud_dog_idam import APIKeyManager
@@ -85,8 +86,9 @@ class ConfigEventSubscription:
             if self._buffer:
                 continue
             try:
-                await asyncio.wait_for(self._signal.wait(), timeout=float(self._max_events) / 64.0)  # config.get derived poll cadence
-            except asyncio.TimeoutError:
+                # Small bounded poll cadence keeps cross-process journal events responsive.
+                await asyncio.wait_for(self._signal.wait(), timeout=float(self._max_events) / 64.0)
+            except TimeoutError:
                 continue
 
     def get_nowait(self) -> dict[str, Any]:
@@ -253,8 +255,15 @@ class AdminRuntime:
         if user_id not in self.user_store:
             raise KeyError(f"Unknown user: {user_id}")
         item = dict(self.user_store[user_id])
-        item["group_ids"] = _string_list(item.get("group_ids"))
-        item["roles"] = self.resolve_roles(user_id, group_ids=item["group_ids"])
+        group_ids = _string_list(item.get("group_ids"))
+        roles = self.resolve_roles(user_id, group_ids=group_ids)
+        status = str(item.get("status", "active")).lower()
+        item["group_ids"] = group_ids
+        item["groups"] = list(group_ids)
+        item["roles"] = roles
+        item["name"] = str(item.get("name") or item.get("username") or user_id)
+        item["disabled"] = status not in {"active", "enabled"}
+        item["is_system_admin"] = "admin" in roles or "*" in roles
         return item
 
     def resolve_roles(self, user_id: str, *, group_ids: list[str] | None = None) -> list[str]:
@@ -350,6 +359,8 @@ class AdminRuntime:
         item = dict(self.group_store[group_id])
         item["roles"] = _string_list(item.get("roles"))
         item["members"] = _string_list(item.get("members"))
+        item["name"] = str(item.get("name") or item.get("group_id") or group_id)
+        item["member_count"] = len(item["members"])
         return item
 
     def create_group(
@@ -408,14 +419,20 @@ class AdminRuntime:
         rows: list[dict[str, Any]] = []
         for key in self.api_key_manager.list_keys(owner_id=owner_user_id):
             meta = self.api_key_metadata.get(key.api_key_id, {})
+            capabilities = _string_list(meta.get("capabilities"))
             rows.append(
                 {
                     "key_id": key.api_key_id,
+                    "api_key_id": key.api_key_id,
                     "name": str(meta.get("name", key.owner_user_id)),
                     "owner_user_id": key.owner_user_id,
+                    "user_id": key.owner_user_id,
                     "key_prefix": key.key_prefix,
                     "status": key.status,
-                    "capabilities": _string_list(meta.get("capabilities")),
+                    "capabilities": capabilities,
+                    "groups": list(capabilities),
+                    "scopes": list(capabilities),
+                    "disabled": key.status != "active",
                     "created_at": str(meta.get("created_at", "")),
                     "expires_at": key.expires_at.isoformat() if key.expires_at is not None else None,
                 }
