@@ -19,7 +19,7 @@ from typing import Any
 
 from cloud_dog_storage import path_utils
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from git_tools.config.models import GlobalConfigModel
@@ -31,6 +31,39 @@ _ROLE_PERMISSIONS = {
     "writer": {"git:read", "git:write", "git:execute"},
     "reader": {"git:read"},
 }
+
+_LEGACY_WEBUI_REDIRECTS = {
+    "/ui/login": "/login",
+    "/audit": "/audit-log",
+    "/logs": "/audit-log",
+    "/idam/users": "/admin/users",
+    "/idam/groups": "/admin/groups",
+    "/idam/api-keys": "/admin/api-keys",
+    "/idam/roles": "/admin/roles",
+    "/idam/rbac": "/admin/rbac",
+    "/api-keys": "/admin/api-keys",
+    "/apikeys": "/admin/api-keys",
+    "/rbac": "/admin/rbac",
+    "/api-docs": "/developer/api-docs",
+    "/docs": "/developer/api-docs",
+    "/openapi": "/developer/api-docs",
+    "/mcp-console": "/developer/mcp-console",
+    "/a2a-console": "/developer/a2a-console",
+    "/jobs": "/system/jobs",
+    "/settings": "/system/settings",
+    "/about": "/system/about",
+}
+
+
+def _redirect_with_request_parts(request: Request, target_path: str) -> RedirectResponse:
+    query = request.url.query
+    fragment = request.url.fragment
+    target = target_path
+    if query:
+        target = f"{target}?{query}"
+    if fragment:
+        target = f"{target}#{fragment}"
+    return RedirectResponse(target, status_code=308)
 
 
 def _enforce_rbac(request: Request) -> None:
@@ -113,7 +146,6 @@ def _runtime_config_payload(config: GlobalConfigModel, request: Request) -> dict
         "SESSION_TIMEOUT_MINUTES": config.web.session_timeout_minutes,
     }
 
-
 def _is_reserved_spa_path(path: str, config: GlobalConfigModel) -> bool:
     """Return whether the path belongs to a non-SPA route family."""
     trimmed = path.strip("/")
@@ -149,6 +181,14 @@ def register_web_ui(app: FastAPI, config: GlobalConfigModel) -> None:
 
     if assets_root.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_root)), name="ui-assets")
+
+    @app.middleware("http")
+    async def canonical_webui_redirects(request: Request, call_next):
+        if request.method in ("GET", "HEAD"):
+            target = _LEGACY_WEBUI_REDIRECTS.get(request.url.path)
+            if target is not None:
+                return _redirect_with_request_parts(request, target)
+        return await call_next(request)
 
     @app.get("/runtime-config.js", response_class=Response)
     async def runtime_config(request: Request) -> Response:
@@ -196,15 +236,26 @@ def register_web_ui(app: FastAPI, config: GlobalConfigModel) -> None:
         return _index_response(ui_root)
 
     @app.get("/api-docs", response_class=Response)
-    @app.get("/mcp-console", response_class=Response)
     @app.get("/a2a-console", response_class=Response)
     async def spa_known_deep_links() -> Response:
         """Serve SPA routes that overlap API/MCP naming but are UI pages."""
         return _index_response(ui_root)
 
+    @app.get("/jobs", response_class=Response)
+    async def jobs_legacy_alias(request: Request) -> Response:
+        # PS-WEBUI-URL-CANONICAL WURL-002 / PS-76 JW13.1: legacy /jobs -> canonical
+        # /system/jobs as a deterministic HTTP 308, preserving query string (WURL-010).
+        target = "/system/jobs"
+        if request.url.query:
+            target = f"{target}?{request.url.query}"
+        return RedirectResponse(target, status_code=308)
+
     @app.get("/{path:path}", response_class=Response)
-    async def spa_fallback(path: str) -> Response:
+    async def spa_fallback(path: str, request: Request) -> Response:
         """Requirements: FR-16, FR-17."""
+        redirect_target = _LEGACY_WEBUI_REDIRECTS.get(f"/{path.strip('/')}")
+        if redirect_target is not None:
+            return _redirect_with_request_parts(request, redirect_target)
         if _is_reserved_spa_path(path, config):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         return _index_response(ui_root)

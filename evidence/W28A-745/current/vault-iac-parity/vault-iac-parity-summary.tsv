@@ -1,7 +1,0 @@
-check	raw_value	command	pass
-Vault health	429 healthy standby captured	curl $VAULT_ADDR/v1/sys/health	PASS
-Vault dev/services contains gitmcpserver0	True keys=['a2a_url', 'api_key', 'api_url', 'mcp_url', 'web_password', 'web_url', 'web_username']	GET /v1/cloud_dog_ai/data/config (key names only)	PASS
-IaC Vault service refs exactly web_password,web_username	['web_password', 'web_username']	python3 regex over gitmcpserver_containers.tf.json for local.config.vault.dev.services.gitmcpserver0.<key>	PASS
-Vault gitmcpserver0.web_username present	True	GET /v1/cloud_dog_ai/data/config value redacted	PASS
-Vault gitmcpserver0.web_password present	True	GET /v1/cloud_dog_ai/data/config value redacted	PASS
-Vault write/rotate/invent path count	0	readonly evidence file contains no POST/PUT/DELETE/PATCH Vault request	PASS

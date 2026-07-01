@@ -114,15 +114,22 @@ echo "=========================================="
 # ── PyPI Configuration ───────────────────────────────────────────
 # Public variant (PS-97 v1.1 §3.3 / §4): a SINGLE public index, default public
 # PyPI, passed to the build as the PUBLIC_PYPI_INDEX_URL ARG. No internal index
-# host, no --extra-index-url. Dev variant: legacy internal Gitea PyPI default
-# (intentional Gitea-build-stage carve-out, gated behind --variant dev).
+# host, no --extra-index-url. Dev variant: internal index is supplied by the build
+# ENVIRONMENT (PYPI_URL) — no internal host literal is shipped in published source.
 if [[ "${VARIANT}" == "public" ]]; then
   PUBLIC_PYPI_INDEX_URL="${PUBLIC_PYPI_INDEX_URL:-https://pypi.org/simple/}"
   PYPI_URL="${PYPI_URL:-${PUBLIC_PYPI_INDEX_URL}}"
   echo "Public package index: ${PUBLIC_PYPI_INDEX_URL}"
 else
+  # dev/internal variant: the internal package index MUST be provided via the
+  # PYPI_URL environment variable. No internal host is hardcoded here (a source
+  # literal would leak an internal FQDN into the published mirror — PS-99 §3).
   PUBLIC_PYPI_INDEX_URL=""
-  PYPI_URL="${PYPI_URL:-https://gitea.cloud-dog.net/api/packages/Cloud-Dog-External/pypi/simple}"
+  PYPI_URL="${PYPI_URL:-}"
+  if [[ -z "${PYPI_URL}" ]]; then
+    echo "ERROR: --variant dev requires PYPI_URL to be set (internal index); none is shipped in source." >&2
+    exit 2
+  fi
 fi
 PYPI_USERNAME="${PYPI_USERNAME:-}"
 PYPI_PASSWORD="${PYPI_PASSWORD:-}"

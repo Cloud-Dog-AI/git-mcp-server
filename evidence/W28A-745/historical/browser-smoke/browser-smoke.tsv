@@ -1,6 +1,0 @@
-service	url	document_status	title	body_chars	console_errors	critical_request_failures	screenshot	pass
-target-gitmcpserver0	https://gitmcpserver0.cloud-dog.net/	200	Cloud-Dog Git MCP	110	0	0	evidence/W28A-745/current/g8-live/browser-smoke/screenshots/target-gitmcpserver0.png	PASS
-sentinel-chatclient0	https://chatclient0.cloud-dog.net/	200	Cloud-Dog : Chat client	104	2	0	evidence/W28A-745/current/g8-live/browser-smoke/screenshots/sentinel-chatclient0.png	FAIL
-sentinel-expertagent0	https://expertagent0.cloud-dog.net/	200	Cloud-Dog : Expert Agent	105	1	0	evidence/W28A-745/current/g8-live/browser-smoke/screenshots/sentinel-expertagent0.png	FAIL
-sentinel-notificationagent0	https://notificationagent0.cloud-dog.net/	200	Cloud-Dog : Notification agent	111	1	0	evidence/W28A-745/current/g8-live/browser-smoke/screenshots/sentinel-notificationagent0.png	FAIL
-sentinel-filemcpserver0	https://filemcpserver0.cloud-dog.net/	200	Cloud-Dog File MCP	111	2	0	evidence/W28A-745/current/g8-live/browser-smoke/screenshots/sentinel-filemcpserver0.png	FAIL
