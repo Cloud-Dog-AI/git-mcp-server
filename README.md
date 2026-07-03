@@ -42,6 +42,7 @@ Runtime configuration is loaded from the env file passed to `server_control.sh`,
 
 ## Documentation
 
+- [docs/API-REFERENCE.md](docs/API-REFERENCE.md)
 - [EXTERNAL-BUILD.md](EXTERNAL-BUILD.md)
 - [BUILD.md](BUILD.md)
 - [PUBLICATION-SMOKE.md](PUBLICATION-SMOKE.md)
