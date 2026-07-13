@@ -6,21 +6,24 @@ build-backend = "hatchling.build"
 name = "git-mcp-server"
 version = "0.1.1RC1"
 description = "API-first MCP server for Git repository workflows and branch-scoped file/directory tooling."
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
 authors = [
   { name = "Cloud-Dog, Viewdeck Engineering Limited" }
 ]
 dependencies = [
     # Platform packages
-    "cloud_dog_config>=0.3.2",
-    "cloud_dog_logging>=0.3.3",
-    "cloud_dog_api_kit==0.13.0",
-    "cloud_dog_idam>=0.5.2,<0.6",
-    "cloud_dog_db>=0.1.0",
-    "cloud_dog_jobs>=0.3.0",
-    "cloud_dog_cache>=0.1.0",
-    "cloud_dog_storage>=0.1.4",
+    "cloud_dog_config==0.3.4",
+    "cloud_dog_logging>=0.4.1",
+    # W28E-1870-C: consume the common cross-service change-streaming foundation
+    # (PS-102) with the durable SqlJournal extra — no bespoke journal/cursor/queue.
+    "cloud_dog_api_kit[change-stream-db]>=0.14.0",
+    "cloud_dog_idam==0.5.3",
+    "cloud_dog_llm==0.4.0",
+    "cloud_dog_db>=0.3.2",
+    "cloud_dog_jobs>=0.4.2",
+    "cloud_dog_cache>=0.2.1",
+    "cloud_dog_storage==0.1.8",
     # Core runtime
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.2,<3.0",
@@ -33,7 +36,7 @@ dependencies = [
     "chardet>=5.2,<6.0",
     # Structured formats (edits + validation)
     "jsonschema>=4.22,<5.0",
-    "lxml>=5.2,<6.0",
+    "lxml>=6.1.0",
     "beautifulsoup4>=4.12,<5.0",
     "markdown-it-py>=3.0,<4.0",
     "ruamel.yaml>=0.18.6,<1.0",
@@ -41,7 +44,7 @@ dependencies = [
     "deepdiff>=8.6.2,<9.0",
     "unidiff>=0.7.5,<1.0",
     # Secrets / credentials
-    "cryptography>=43.0,<47.0",
+    "cryptography>=48.0.1",
     "hvac>=2.3,<3.0",
     # ASGI server runtime for api_server.py / mcp_server.py entrypoints
     "uvicorn>=0.30,<1.0",
@@ -63,14 +66,14 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]
 ignore = ["UP017"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

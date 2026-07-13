@@ -34,6 +34,7 @@ from git_mcp_server.api_server import (
 from git_mcp_server.http_client import build_origin, request_json
 from git_mcp_server.logging import configure_service_logging
 from git_tools.admin.runtime import ConfigEventHub
+from git_tools.change_stream.wiring import build_watch_service
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.admin.profile_store import ProfileStore
 from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
@@ -134,6 +135,15 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
     )
     event_hub = ConfigEventHub(journal_path=config.storage.events.path)
 
+    # W28E-1870-C: platform change-stream broadcaster (PS-102 §5.2). The common
+    # make_broadcast_hook maps each emitted ChangeEvent onto a ConfigChangeEvent
+    # and publishes it here for live SSE fan-out — no bespoke broadcaster.
+    _change_stream_broadcaster: Any = None
+    with __import__("contextlib").suppress(Exception):
+        from cloud_dog_api_kit.a2a.events import InMemoryEventBroadcaster
+
+        _change_stream_broadcaster = InMemoryEventBroadcaster()
+
     @app.get(config.a2a_server.base_path, tags=["a2a"])
     async def a2a_root(request: Request) -> dict:
         """Return a minimal A2A root payload."""
@@ -227,7 +237,21 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
     )
     # GM3 (W28C-1705): per-tool-call typed audit on the A2A surface (reuse the app's audit sink).
     audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
-    tool_registry = ToolRegistry(workspace_manager, profile_store=profile_store, audit_writer=audit_writer)
+    # W28E-1870-C: git change-watch adapter on the A2A surface, with the platform
+    # a2a.events broadcaster wired for live change fan-out (PS-102 §5.2). The
+    # git_watch_* tools surface as A2A agent-card skills + task dispatch.
+    watch_service = build_watch_service(
+        engine=db_runtime.engine,
+        workspace_manager=workspace_manager,
+        broadcaster=_change_stream_broadcaster,
+        audit_writer=audit_writer,
+    )
+    tool_registry = ToolRegistry(
+        workspace_manager,
+        profile_store=profile_store,
+        audit_writer=audit_writer,
+        watch_service=watch_service,
+    )
 
     def _parse_a2a_input(text: str) -> dict[str, Any]:
         """Parse JSON input text or return a minimal dict from plain text."""

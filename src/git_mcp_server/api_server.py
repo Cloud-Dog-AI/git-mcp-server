@@ -49,6 +49,7 @@ from git_mcp_server.workspace_enum_endpoints import build_workspace_enum_router
 from git_tools.admin.profile_store import ProfileStore
 from git_tools.admin.roles_service import RolesService
 from git_tools.admin.runtime import AdminRuntime
+from git_tools.change_stream.wiring import build_watch_service
 from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.config.models import LEGACY_API_BASE_PATH
@@ -499,6 +500,15 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         service_instance=config.runtime.server_id,
         configure_logging=False,
     )
+    # W28E-1870-C: build the git change-watch adapter (PS-102 CSTREAM-GIT-001/002)
+    # bound to the durable cloud_dog_db engine + the workspace-backed repo resolver
+    # + the shared AuditWriter. Registering it exposes the git_watch_* tools on the
+    # REST /tools, MCP tools/*, and A2A skills through the ONE ToolRegistry.
+    watch_service = build_watch_service(
+        engine=db_runtime.engine,
+        workspace_manager=workspace_manager,
+        audit_writer=audit_writer,
+    )
     tool_registry = ToolRegistry(
         workspace_manager,
         admin_runtime=admin_runtime,
@@ -508,6 +518,7 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         role_bindings=role_bindings,
         credential_store=credential_store,
         audit_writer=audit_writer,
+        watch_service=watch_service,
     )
     tool_role_map = config.rbac.roles
     tool_default_deny = config.rbac.default_deny
@@ -561,19 +572,32 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
     # W28A-876: mount the canonical SHARED cloud_dog_idam idam_v1_router (resource-registry +
     # rbac-bindings) at the SAME bases as the admin router (api_base_path + legacy_api_base_path)
     # so the RBAC page resolves /v1/idam/v1/* and /api/v1/idam/v1/*. ONE estate-wide implementation.
+    # W28E-1863 fix-wave-e: mount the router FIRST and keep the optional engine
+    # setter import/call fully independent. ``set_idam_v1_engine`` does NOT exist
+    # in the pinned/deployed cloud_dog_idam (0.5.3); importing it in the SAME
+    # statement (or the SAME try) as ``idam_v1_router`` raised ImportError, which
+    # the outer ``except Exception: pass`` swallowed BEFORE the mount ran — so the
+    # RBAC bindings router was never mounted (RBAC page 404 → "Not Found" banner).
+    # Mounting the router is not conditional on the engine setter being present.
     try:
         from cloud_dog_idam.api.fastapi.router import (
             idam_v1_router as _idam_v1_router,
         )
-        from cloud_dog_idam.api.fastapi.router import (
-            set_idam_v1_engine as _set_idam_v1_engine,
-        )
 
-        with suppress(Exception):
-            _set_idam_v1_engine(getattr(auth_runtime, "engine", None))
         for _ipfx in {api_base_path, legacy_api_base_path}:
             if _ipfx:
                 app.include_router(_idam_v1_router, prefix=_ipfx, include_in_schema=False)
+        # Best-effort engine injection — optional across idam versions; a missing
+        # symbol or a raising call MUST NOT unmount the router above.
+        try:
+            from cloud_dog_idam.api.fastapi.router import (
+                set_idam_v1_engine as _set_idam_v1_engine,
+            )
+
+            with suppress(Exception):
+                _set_idam_v1_engine(getattr(auth_runtime, "engine", None))
+        except Exception:
+            pass
     except Exception:
         pass
     app.include_router(

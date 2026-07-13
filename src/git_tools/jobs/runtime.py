@@ -95,6 +95,7 @@ class JobsRuntime:
         self._max_retries = max_retries
         self._dead_letter_queue = dead_letter_queue
         self._backend = SQLQueueBackend(database_url)
+        self._ensure_recent_jobs_index()
         audit_emitter = _PlatformAuditEmitter()
         self._queue = JobQueue(self._backend, payload_max_bytes=payload_max_bytes, audit_emitter=audit_emitter)
         self._admin = AdminService(self._backend)
@@ -378,13 +379,10 @@ class JobsRuntime:
             "counts": self._admin.queue_status(),
         }
 
-    def get_job_detail(self, job_id: str) -> dict[str, Any] | None:
-        """Return a status view enriched with result, error, and progress."""
-        job = self._admin.get_job(job_id)
-        if job is None:
-            return None
+    def _job_to_detail(self, job: Any) -> dict[str, Any]:
+        """Build an enriched status view from an already-loaded Job object."""
         with self._state_lock:
-            state = deepcopy(self._state.get(job_id, {}))
+            state = deepcopy(self._state.get(job.job_id, {}))
         return {
             "job_id": job.job_id,
             "job_type": job.job_type,
@@ -405,12 +403,69 @@ class JobsRuntime:
             "error": state.get("error"),
         }
 
+    def get_job_detail(self, job_id: str) -> dict[str, Any] | None:
+        """Return a status view enriched with result, error, and progress."""
+        job = self._admin.get_job(job_id)
+        if job is None:
+            return None
+        return self._job_to_detail(job)
+
+    def _ensure_recent_jobs_index(self) -> None:
+        """Create an index on ``updated_at`` for the recent-jobs list query.
+
+        Without it, ``ORDER BY updated_at DESC LIMIT n`` forces the database to
+        read and sort the entire jobs table (14k+ rows in a long-lived
+        deployment on a slow shared volume), which made ``GET /api/v1/jobs``
+        exceed the gateway timeout (504). With the index the query plan becomes
+        an index-ordered scan bounded by ``limit`` (verified: ``SCAN jobs USING
+        INDEX``). Idempotent (``IF NOT EXISTS``) and portable across the
+        SQLite/MySQL/PostgreSQL backends the platform supports.
+        """
+        from sqlalchemy import text
+
+        repo = getattr(self._backend, "_repo", None)
+        engine = getattr(repo, "engine", None)
+        if engine is None:
+            return
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_git_jobs_updated_at ON jobs (updated_at)"))
+        except Exception:  # noqa: BLE001 — best-effort; the query still works without the index
+            pass
+
+    def _recent_jobs(self, limit: int) -> list[Any]:
+        """Return the most-recent jobs via a DB-side ORDER BY + LIMIT query.
+
+        The platform ``all_jobs()`` loads every row into Python (O(n) over the
+        full history — 14k+ rows in a long-lived deployment) before the caller
+        can slice, which makes the Jobs list endpoint time out. Push the sort
+        and the limit into the database using the platform SQLAlchemy repo's own
+        engine/table + ``row_to_job`` (no bespoke schema; reuse the platform
+        primitives) so the query cost is bounded by ``limit``, backed by the
+        ``ix_git_jobs_updated_at`` index created in ``__init__``.
+        """
+        from sqlalchemy import desc, select
+
+        from cloud_dog_jobs.storage.sqlalchemy.models import row_to_job
+
+        repo = getattr(self._backend, "_repo", None)
+        engine = getattr(repo, "engine", None)
+        jobs_table = getattr(repo, "jobs", None)
+        if repo is None or engine is None or jobs_table is None:
+            # Non-SQL backend (e.g. in-memory in tests): fall back to the
+            # portable path, which is cheap when the history is small.
+            return sorted(self._backend.all_jobs(), key=lambda item: item.updated_at, reverse=True)[:limit]
+        bounded = max(1, int(limit))
+        with engine.begin() as conn:
+            rows = (
+                conn.execute(
+                    select(jobs_table).order_by(desc(jobs_table.c.updated_at)).limit(bounded)
+                )
+                .mappings()
+                .all()
+            )
+        return [row_to_job(dict(row)) for row in rows]
+
     def list_job_details(self, limit: int = 100) -> list[dict[str, Any]]:
         """Return enriched job status rows for recent jobs."""
-        items: list[dict[str, Any]] = []
-        jobs = sorted(self._backend.all_jobs(), key=lambda item: item.updated_at, reverse=True)[:limit]
-        for job in jobs:
-            detail = self.get_job_detail(job.job_id)
-            if detail is not None:
-                items.append(detail)
-        return items
+        return [self._job_to_detail(job) for job in self._recent_jobs(limit)]

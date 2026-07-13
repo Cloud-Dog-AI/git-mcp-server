@@ -151,6 +151,89 @@ profiles:
     recovery:
       mode: "stash"
 
+  # GM-PR-06: seed-profile breadth — distinct source types, default branches, credential modes,
+  # workspace modes, force-push policies, and recovery modes so the Profiles WebUI shows real variety.
+  local_path_repo:
+    repo:
+      source: "file:///workspace/git-mcp/seed/local-repo"
+      default_branch: "main"
+      remotes:
+        origin: "file:///workspace/git-mcp/seed/local-repo"
+    workspace:
+      mode: "ephemeral"
+      ttl_seconds: 1800
+    policy:
+      protected_branches: ["main"]
+      ff_only_targets: ["main"]
+      force_push: "admin_only"
+      file_scope:
+        deny_globs: ["**/.git/**"]
+        allowed_types: ["*"]
+      validation:
+        json: "strict"
+        yaml: "warn"
+        xml: "warn"
+        html: "ignore"
+        markdown: "ignore"
+    auth:
+      credential_mode: "session"
+    recovery:
+      mode: "recovery_branch"
+
+  stored_https_repo:
+    repo:
+      source: "https://git.example.com/platform/service.git"
+      default_branch: "develop"
+      remotes:
+        origin: "https://git.example.com/platform/service.git"
+    workspace:
+      mode: "persistent"
+      ttl_seconds: 7200
+    policy:
+      protected_branches: ["develop", "release/*"]
+      ff_only_targets: ["develop"]
+      force_push: "never"
+      file_scope:
+        deny_globs: ["**/.git/**"]
+        allowed_types: ["*"]
+      validation:
+        json: "strict"
+        yaml: "warn"
+        xml: "warn"
+        html: "ignore"
+        markdown: "ignore"
+    auth:
+      credential_mode: "stored"
+    recovery:
+      mode: "stash"
+
+  mirror_master_repo:
+    repo:
+      source: "https://github.com/octocat/Spoon-Knife.git"
+      default_branch: "master"
+      remotes:
+        origin: "https://github.com/octocat/Spoon-Knife.git"
+    workspace:
+      mode: "ephemeral"
+      ttl_seconds: 900
+    policy:
+      protected_branches: ["master"]
+      ff_only_targets: ["master"]
+      force_push: "never"
+      file_scope:
+        deny_globs: ["**/.git/**"]
+        allowed_types: ["*"]
+      validation:
+        json: "strict"
+        yaml: "warn"
+        xml: "warn"
+        html: "ignore"
+        markdown: "ignore"
+    auth:
+      credential_mode: "session"
+    recovery:
+      mode: "patch_bundle"
+
 rbac:
   enabled: true
   default_deny: true
@@ -158,7 +241,7 @@ rbac:
     admin: ["*"]
     maintainer: ["repo_*", "git_*", "file_*", "dir_*", "admin_profile_read", "admin_rbac_read"]
     writer: ["repo_*", "git_*", "file_*", "dir_*"]
-    reader: ["repo_open", "repo_close", "git_status", "git_log", "git_diff", "git_branch_list", "git_tag_list", "file_read", "file_download", "dir_list", "search_*"]
+    reader: ["repo_open", "repo_close", "git_status", "git_log", "git_diff", "git_branch_list", "git_tag_list", "file_read", "file_download", "dir_list", "search_*", "git_watch_list", "git_watch_status", "git_watch_get_batch", "git_watch_ack", "git_watch_recover"]
 
 log:
   level: "INFO"

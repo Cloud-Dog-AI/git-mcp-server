@@ -303,6 +303,23 @@ class WorkspaceManager:
             return 0.0
         return round(usage.used / usage.total * 100.0, 1)
 
+    def disk_free_bytes(self) -> int:
+        """Return absolute free bytes on the base_dir filesystem (GM4 disk-pressure).
+
+        The percentage alarm alone is coarse on a *shared* volume (git-mcp's own
+        workspaces may be tiny while other services on the same disk push the
+        percentage high). Callers pair this absolute floor with the percentage so
+        `repo_open` is only refused when the disk is genuinely near-exhausted for
+        git-mcp's tiny ephemeral workspaces — not when amplefree space remains.
+        """
+        try:
+            return int(shutil.disk_usage(str(self.base_dir)).free)
+        except OSError:
+            # Unknown -> report a large value so the absolute floor never causes a
+            # false refuse on top of the percentage check (fail-open on the floor,
+            # the percentage guard still applies).
+            return 1 << 62
+
     def _safe_workspace_path(self, workspace_id: str) -> Path:
         """Resolve a workspace id to a path strictly inside base_dir (traversal guard)."""
         target = (self.base_dir / workspace_id).resolve()

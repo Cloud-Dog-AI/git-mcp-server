@@ -462,6 +462,28 @@ def create_web_app(env_files: list[str] | None = None) -> FastAPI:
             )
         )
 
+    # W28E-1863 WS-A: FastAPI >=0.114 lazily mounts platform-app routers (incl. the
+    # cloud_dog_api_kit health router that also serves ``/status``) as an opaque
+    # ``_IncludedRouter`` mount with ``path=None``. The filter above only strips flat
+    # ``/status`` APIRoutes, so the health router's ``/status`` survives inside the
+    # mount and, being registered EARLIER than this rich UI ``ui_status`` route,
+    # shadows it (first-match-wins) — the SPA dashboard then received the bare
+    # health payload with no ``uptime_seconds``/``service_metrics``. Hoist the rich
+    # ``ui_status`` APIRoute to the front so it wins regardless of the platform
+    # router's lazy-mount position. Version-agnostic: a no-op when nothing shadows it.
+    _routes = app.router.routes
+    _ui_status_idx = next(
+        (
+            i
+            for i, r in enumerate(_routes)
+            if getattr(r, "path", None) == "/status"
+            and getattr(getattr(r, "endpoint", None), "__name__", "") == "ui_status"
+        ),
+        None,
+    )
+    if _ui_status_idx is not None and _ui_status_idx != 0:
+        _routes.insert(0, _routes.pop(_ui_status_idx))
+
     # W28A-876: serve the canonical SHARED cloud_dog_idam idam_v1_router (resource-registry +
     # rbac-bindings) directly on the web tier at {api_base_path}, BEFORE the catch-all proxy
     # below, so /api/v1/idam/v1/* resolves locally. ONE estate-wide implementation.

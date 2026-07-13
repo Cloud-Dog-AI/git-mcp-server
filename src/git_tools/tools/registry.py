@@ -117,6 +117,14 @@ from git_tools.tools.definitions import (
     GitTagDeleteInput,
     GitTagListInput,
     GitTagPushInput,
+    GitWatchAckInput,
+    GitWatchCreateInput,
+    GitWatchGetBatchInput,
+    GitWatchListInput,
+    GitWatchObserveInput,
+    GitWatchRecoverInput,
+    GitWatchRefInput,
+    GitWatchTestEventInput,
     RefSpec,
     RepoCloseInput,
     RepoOpenInput,
@@ -126,6 +134,16 @@ from git_tools.tools.definitions import (
 )
 from git_tools.workspaces.manager import Workspace, WorkspaceManager
 
+# W28E-1870-C: the git change-watch adapter (PS-102 CSTREAM-GIT-001/002). Optional
+# — when no WatchService is injected the git_watch_* tools are not registered.
+try:  # pragma: no cover - import guard keeps registry usable without the foundation
+    from cloud_dog_api_kit.change_stream.errors import ChangeStreamError
+
+    _CHANGE_STREAM_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    ChangeStreamError = None  # type: ignore[assignment,misc]
+    _CHANGE_STREAM_AVAILABLE = False
+
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 _audit = get_logger("git_mcp.tool_audit")
@@ -133,6 +151,14 @@ _audit = get_logger("git_mcp.tool_audit")
 # GM4 (W28C-1705) — disk-pressure thresholds for the workspace volume.
 _DISK_PRESSURE_WARN_PERCENT = 80.0
 _REPO_OPEN_DISK_REFUSE_PERCENT = 95.0
+# W28E-1882 — the percentage alone is a false positive on a *shared* volume:
+# git-mcp's own ephemeral workspaces are tiny (KBs–MBs) while other services on
+# the same disk can push usage past 95% with gigabytes of absolute headroom still
+# free. Refuse only when the percentage is critical AND absolute free space is
+# below a floor that genuinely cannot fit a git workspace. This strengthens (not
+# weakens) the guard: it still refuses on true exhaustion, but no longer blocks
+# when there is ample absolute room for the small workspaces git-mcp creates.
+_REPO_OPEN_DISK_REFUSE_MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB
 
 
 @dataclass(slots=True)
@@ -191,10 +217,14 @@ class ToolRegistry:
         role_bindings: dict[str, set[str]] | None = None,
         credential_store: dict[str, str] | None = None,
         audit_writer: AuditWriter | None = None,
+        watch_service: Any | None = None,
     ) -> None:
         self.workspace_manager = workspace_manager
         self.admin_runtime = admin_runtime
         self._audit_writer = audit_writer
+        # W28E-1870-C: the git change-watch adapter (PS-102 CSTREAM-GIT-001/002).
+        # None -> the git_watch_* tools are simply absent from the catalogue.
+        self._watch_service = watch_service
         self.profile_store = profile_store if profile_store is not None else {}
         self.user_store = user_store if user_store is not None else {}
         self.group_store = group_store if group_store is not None else {}
@@ -463,7 +493,92 @@ class ToolRegistry:
                 self._admin_api_key_revoke,
             ),
         }
+        # W28E-1870-C git change-watch tools (PS-102 §5.3 / CSTREAM-GIT-001/002).
+        # Registered only when a WatchService is injected, so they surface on the
+        # MCP tools/list + tools/call, the A2A agent-card skills + task dispatch,
+        # and the REST /tools + /tools/{name} — all via the ONE registry, with the
+        # existing per-tool RBAC + audit. The naming (git_watch_*) matches the
+        # config rbac.roles ``git_*`` glob so writer/maintainer/admin can create
+        # and the read verbs are added to the ``reader`` role list.
+        if self._watch_service is not None:
+            tools.update(self._build_watch_tools())
         return tools
+
+    def _build_watch_tools(self) -> dict[str, ToolContract]:
+        """Build the git_watch_* ToolContracts backed by the injected WatchService."""
+        return {
+            "git_watch_create": self._tool(
+                "git_watch_create",
+                "Create a git change-watch over a repository profile with criteria "
+                "(branch, tag, ref glob/regex, file-path glob/regex, author, action). "
+                "Returns the watch id and status.",
+                GitWatchCreateInput,
+                self._git_watch_create,
+            ),
+            "git_watch_list": self._tool(
+                "git_watch_list",
+                "List the caller's git change-watches for the current tenant/profile.",
+                GitWatchListInput,
+                self._git_watch_list,
+            ),
+            "git_watch_status": self._tool(
+                "git_watch_status",
+                "Return a change-watch status (state, journal depth, cursors, in-flight, throttle).",
+                GitWatchRefInput,
+                self._git_watch_status,
+            ),
+            "git_watch_get_batch": self._tool(
+                "git_watch_get_batch",
+                "Retrieve a bounded batch of git change events for a watch since a cursor, "
+                "with the next cursor. Respects max_batch and backpressure.",
+                GitWatchGetBatchInput,
+                self._git_watch_get_batch,
+            ),
+            "git_watch_ack": self._tool(
+                "git_watch_ack",
+                "Acknowledge progress on a change-watch up to a cursor, releasing an in-flight batch slot.",
+                GitWatchAckInput,
+                self._git_watch_ack,
+            ),
+            "git_watch_recover": self._tool(
+                "git_watch_recover",
+                "Re-enquire a safe resume cursor for a change-watch without a replay storm.",
+                GitWatchRecoverInput,
+                self._git_watch_recover,
+            ),
+            "git_watch_observe": self._tool(
+                "git_watch_observe",
+                "Run one bounded server-mediated observation of the watch's repository "
+                "(optionally a capped remote fetch first) and emit matching change events.",
+                GitWatchObserveInput,
+                self._git_watch_observe,
+            ),
+            "git_watch_pause": self._tool(
+                "git_watch_pause",
+                "Pause a change-watch; it retains its cursor and journal within retention.",
+                GitWatchRefInput,
+                self._git_watch_pause,
+            ),
+            "git_watch_resume": self._tool(
+                "git_watch_resume",
+                "Resume a paused change-watch.",
+                GitWatchRefInput,
+                self._git_watch_resume,
+            ),
+            "git_watch_delete": self._tool(
+                "git_watch_delete",
+                "Delete a change-watch and its journal.",
+                GitWatchRefInput,
+                self._git_watch_delete,
+            ),
+            "git_watch_test_event": self._tool(
+                "git_watch_test_event",
+                "Inject a deterministic synthetic change event into a watch's journal "
+                "(test-mode, no external repository mutation).",
+                GitWatchTestEventInput,
+                self._git_watch_test_event,
+            ),
+        }
 
     def list_tools(self) -> list[dict[str, Any]]:
         """Return metadata for all registered tools."""
@@ -737,12 +852,18 @@ class ToolRegistry:
 
     def _repo_access(self, payload: dict[str, Any]) -> dict[str, Any]:
         # GM4 (W28C-1705): refuse new workspace creation under critical disk pressure.
+        # W28E-1882: on a shared volume the percentage alone is a false positive —
+        # only refuse when the disk is BOTH critically full (percentage) AND has
+        # too little absolute free space to safely fit a git workspace.
         disk_percent = self.workspace_manager.disk_usage_percent()
-        if disk_percent >= _REPO_OPEN_DISK_REFUSE_PERCENT:
+        disk_free = self.workspace_manager.disk_free_bytes()
+        if disk_percent >= _REPO_OPEN_DISK_REFUSE_PERCENT and disk_free < _REPO_OPEN_DISK_REFUSE_MIN_FREE_BYTES:
+            free_gib = disk_free / (1024 * 1024 * 1024)
             raise RuntimeError(
                 f"repo_open refused: workspace disk at {disk_percent:.1f}% "
-                f"(>= {_REPO_OPEN_DISK_REFUSE_PERCENT:.0f}% critical threshold); free space via "
-                "the workspace GC / admin reap before opening new repositories."
+                f"(>= {_REPO_OPEN_DISK_REFUSE_PERCENT:.0f}% critical threshold) with only "
+                f"{free_gib:.2f} GiB free (< {_REPO_OPEN_DISK_REFUSE_MIN_FREE_BYTES // (1024 * 1024 * 1024)} GiB floor); "
+                "free space via the workspace GC / admin reap before opening new repositories."
             )
         args = self._validate(RepoOpenInput, payload)
         self._assert_ref_allowed(args.profile, args.ref)
@@ -1120,6 +1241,126 @@ class ToolRegistry:
         args = self._validate(SearchFilesInput, payload)
         workspace = self._workspace(args.workspace_id)
         return {"results": search_files(workspace.path, query=args.query, globs=args.globs)}
+
+    # ------------------------------------------------------------------
+    # W28E-1870-C git change-watch handlers (PS-102 CSTREAM-GIT-001/002).
+    # Thin dispatch onto the injected WatchService adapter. Tenant scope defaults
+    # to the profile when a caller does not pass an explicit tenant_id (the watch
+    # is scoped to a tenant + git profile; the adapter enforces cross-tenant =
+    # WatchNotFound). Stable change-stream error codes surface as the tool's
+    # ValueError so the MCP/REST transport returns a deterministic error body.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _watch_tenant(payload: dict[str, Any]) -> str:
+        return str(payload.get("tenant_id") or payload.get("profile") or "default")
+
+    def _watch_call(self, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        if self._watch_service is None:
+            raise KeyError("git change-watch is not enabled on this surface")
+        try:
+            return fn()
+        except ChangeStreamError as exc:  # type: ignore[misc]
+            raise ValueError(json.dumps(exc.to_dict())) from exc
+
+    def _git_watch_create(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchCreateInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.create_watch(
+                profile_id=args.profile,
+                tenant_id=self._watch_tenant(payload),
+                actor=str(args.actor or payload.get("_actor_id") or "mcp"),
+                criteria=args.criteria or None,
+                max_batch=args.max_batch,
+                max_inflight=args.max_inflight,
+                journal_max=args.journal_max,
+                journal_ttl_seconds=args.journal_ttl_seconds,
+            )
+        )
+
+    def _git_watch_list(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self._validate(GitWatchListInput, payload)
+        return self._watch_call(
+            lambda: {"watches": self._watch_service.list_watches(tenant_id=self._watch_tenant(payload))}
+        )
+
+    def _git_watch_status(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchRefInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.get_status(args.watch_id, tenant_id=self._watch_tenant(payload))
+        )
+
+    def _git_watch_get_batch(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchGetBatchInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.get_batch(
+                args.watch_id,
+                tenant_id=self._watch_tenant(payload),
+                since_cursor=args.since_cursor or None,
+                max_batch=args.max_batch,
+            )
+        )
+
+    def _git_watch_ack(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchAckInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.ack(
+                args.watch_id, tenant_id=self._watch_tenant(payload), ack_cursor=args.ack_cursor
+            )
+        )
+
+    def _git_watch_recover(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchRecoverInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.recover(
+                args.watch_id, tenant_id=self._watch_tenant(payload), since_cursor=args.since_cursor or None
+            )
+        )
+
+    def _git_watch_observe(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchObserveInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.observe_repo(
+                args.watch_id,
+                tenant_id=self._watch_tenant(payload),
+                fetch=args.fetch,
+                remote=args.remote,
+            )
+        )
+
+    def _git_watch_pause(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchRefInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.pause(args.watch_id, tenant_id=self._watch_tenant(payload))
+        )
+
+    def _git_watch_resume(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchRefInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.resume(args.watch_id, tenant_id=self._watch_tenant(payload))
+        )
+
+    def _git_watch_delete(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchRefInput, payload)
+        return self._watch_call(
+            lambda: self._watch_service.delete(args.watch_id, tenant_id=self._watch_tenant(payload))
+        )
+
+    def _git_watch_test_event(self, payload: dict[str, Any]) -> dict[str, Any]:
+        args = self._validate(GitWatchTestEventInput, payload)
+        extra = {
+            k: v
+            for k, v in payload.items()
+            if k not in {"watch_id", "tenant_id", "profile", "action", "object_ref"}
+        }
+        return self._watch_call(
+            lambda: self._watch_service.test_event(
+                args.watch_id,
+                tenant_id=self._watch_tenant(payload),
+                action=args.action,
+                object_ref=args.object_ref,
+                **extra,
+            )
+        )
 
     def _admin_profile_create(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = self._validate(AdminProfileCreateInput, payload)

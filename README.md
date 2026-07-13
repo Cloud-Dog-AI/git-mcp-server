@@ -7,7 +7,7 @@
 Prerequisites:
 
 - Docker 24 or newer with BuildKit enabled
-- Python 3.12 if you run the package locally
+- Python 3.13 if you run the package locally (the project runtime is CPython 3.13; container base is `python:3.13-slim`)
 - Public package source: `https://pypi.org/simple/` (override with `PUBLIC_PYPI_INDEX_URL`)
 
 Build the public image (see [EXTERNAL-BUILD.md](EXTERNAL-BUILD.md) for full guidance):
@@ -28,7 +28,7 @@ The smoke run uses [.env.example](.env.example) and probes:
 ## Local Development
 
 ```bash
-python3 -m venv .venv
+python3.13 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
 pip install --index-url https://pypi.org/simple/ -r requirements.lock
@@ -42,7 +42,6 @@ Runtime configuration is loaded from the env file passed to `server_control.sh`,
 
 ## Documentation
 
-- [docs/API-REFERENCE.md](docs/API-REFERENCE.md)
 - [EXTERNAL-BUILD.md](EXTERNAL-BUILD.md)
 - [BUILD.md](BUILD.md)
 - [PUBLICATION-SMOKE.md](PUBLICATION-SMOKE.md)

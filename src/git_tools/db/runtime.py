@@ -31,8 +31,51 @@ from cloud_dog_db import (
     probe_database,
 )
 from cloud_dog_db.migrations.runner import MigrationConfig
-from sqlalchemy import Engine
+from sqlalchemy import Engine, event
 from sqlalchemy.engine import make_url
+
+# W28E-1882: the profile/roles/jobs registries share ONE SQLite file across the
+# api / mcp / a2a surfaces and their worker threads. SQLite's default lock
+# behaviour makes a concurrent writer raise `sqlite3.OperationalError: database
+# is locked` IMMEDIATELY (no wait) — surfacing as intermittent 500s on profile
+# create + job submit whenever two writes overlap (e.g. under the WebUI E2E
+# suite / real user concurrency). Prime every new SQLite connection with a
+# generous busy_timeout so writers WAIT for the lock instead of failing, and use
+# WAL journalling so readers never block a writer. Non-SQLite engines are left
+# untouched. (busy_timeout is overridable via CLOUD_DOG__GIT__DB__BUSY_TIMEOUT_MS.)
+_SQLITE_BUSY_TIMEOUT_MS_DEFAULT = 30_000
+
+
+def _sqlite_busy_timeout_ms() -> int:
+    try:
+        from cloud_dog_config import get_config
+
+        raw = get_config("git.db.busy_timeout_ms")
+        if raw is not None:
+            value = int(raw)
+            if value > 0:
+                return value
+    except Exception:  # noqa: BLE001 - best-effort; fall back to the default
+        pass
+    return _SQLITE_BUSY_TIMEOUT_MS_DEFAULT
+
+
+def _prime_sqlite_concurrency(engine: Engine) -> None:
+    """Register a connect-time pragma so SQLite writers wait for the lock (busy_timeout)
+    and readers use WAL, eliminating spurious "database is locked" 500s under concurrency."""
+    if engine.dialect.name != "sqlite":
+        return
+    busy_timeout_ms = _sqlite_busy_timeout_ms()
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragmas(dbapi_connection, _connection_record):  # type: ignore[no-untyped-def]
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute(f"PRAGMA busy_timeout = {busy_timeout_ms}")
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.execute("PRAGMA synchronous = NORMAL")
+        finally:
+            cursor.close()
 
 
 @dataclass(slots=True)
@@ -160,6 +203,7 @@ def initialise_database(
             sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
         engine = build_sync_engine(settings)
+        _prime_sqlite_concurrency(engine)
         session_manager = SyncSessionManager(engine)
         runner = MigrationRunner(
             MigrationConfig(

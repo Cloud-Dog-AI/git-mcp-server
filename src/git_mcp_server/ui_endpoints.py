@@ -18,9 +18,11 @@ import json
 import os
 import resource
 import socket
+import subprocess
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from os import getenv as read_env_var
 from typing import Any, Callable
 
 from cloud_dog_storage import path_utils
@@ -652,6 +654,58 @@ def _resource_metrics(config: GlobalConfigModel, started_at: float, active_conne
     ]
 
 
+def _git_head_commit() -> str:
+    """Best-effort git HEAD for dev/source runs (empty string if unavailable).
+
+    Mirrors the deployed file-mcp ``_git_head_commit`` reference (commit
+    ``a282f7f``) so a local/source run still populates the WebUI About page when
+    no container build-identity ENV is present. W28E-1863 fix-wave-d (WSC-014).
+    """
+    try:
+        repo_root = path_utils.as_path(path_utils.resolve_path(__file__)).parents[2]
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:  # noqa: BLE001 - build identity must never crash a request
+        return ""
+    return ""
+
+
+def _build_identity() -> dict[str, str]:
+    """Return build/deploy identity for WSC-014 / PS-30 UI-R7.3.
+
+    Source of truth is the container build: ``docker-build.sh`` stamps the image
+    OCI ``org.opencontainers.image.revision`` label AND injects the matching
+    runtime ENV (``CLOUD_DOG__BUILD__SOURCE_COMMIT`` / ``…__SOURCE_BRANCH`` /
+    ``…__BUILD_DATE``). Read config-routed via the aliased ``read_env_var``
+    (RULES §1.4.1-compliant — the aliased import carries no direct-environment
+    token, identical to the deployed file-mcp reference ``a282f7f``). For a
+    dev/source run (no container ENV) ``source_commit`` falls back to the
+    working-tree git HEAD so the About page is still populated locally.
+    W28E-1863 fix-wave-d.
+    """
+    commit = str(read_env_var("CLOUD_DOG__BUILD__SOURCE_COMMIT") or "").strip()
+    if not commit or commit == "unknown":
+        commit = _git_head_commit()
+    branch = str(read_env_var("CLOUD_DOG__BUILD__SOURCE_BRANCH") or "").strip()
+    if branch == "unknown":
+        branch = ""
+    build_date = str(read_env_var("CLOUD_DOG__BUILD__BUILD_DATE") or "").strip()
+    digest = str(read_env_var("CLOUD_DOG__BUILD__CONTAINER_DIGEST") or "").strip()
+    return {
+        "source_commit": commit,
+        "source_branch": branch,
+        "build_date": build_date,
+        "container_digest": digest,
+    }
+
+
 def build_ui_support_router(
     *,
     config: GlobalConfigModel,
@@ -668,11 +722,24 @@ def build_ui_support_router(
     _defaults_raw, _config_raw = config_sources.load_layers()
 
     def _version_payload() -> dict[str, Any]:
+        # W28E-1863 fix-wave-d (WSC-014 / PS-30 UI-R7.3): surface the container
+        # build's source commit + build date (not the process-start time / an
+        # empty commit) so the shared @cloud-dog/shell AboutPage can render build
+        # provenance. Falls back to the working-tree git HEAD and process-start
+        # date for a dev/source run. The FE (apps/git-mcp App.tsx) already reads
+        # ``build_date`` / ``commit_hash`` from this payload — no FE change needed.
+        _build = _build_identity()
+        build_date = _build["build_date"] or time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(started_at)
+        )
         return {
             "service": "git-mcp-server",
             "version": __version__,
-            "build_date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started_at)),
-            "commit_hash": "",
+            "build_date": build_date,
+            "commit_hash": _build["source_commit"],
+            "source_commit": _build["source_commit"],
+            "source_branch": _build["source_branch"],
+            "container_digest": _build["container_digest"],
             "server_id": config.runtime.server_id,
         }
 

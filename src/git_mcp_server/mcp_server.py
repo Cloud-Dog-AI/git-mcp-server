@@ -36,6 +36,7 @@ from cloud_dog_idam.domain.models import ApiKey
 from git_tools.admin.profile_store import ProfileStore
 from git_tools.admin.runtime import AdminRuntime
 from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
+from git_tools.change_stream.wiring import build_watch_service
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.db import initialise_database
 from git_mcp_server.auth.middleware import (
@@ -192,12 +193,20 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     )
     # GM3 (W28C-1705): per-tool-call typed audit on the MCP surface (reuse the app's audit sink).
     audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
+    # W28E-1870-C: git change-watch adapter on the MCP tier — same durable engine +
+    # workspace resolver, so the git_watch_* tools appear on MCP tools/list + call.
+    watch_service = build_watch_service(
+        engine=db_runtime.engine,
+        workspace_manager=workspace_manager,
+        audit_writer=audit_writer,
+    )
     registry = ToolRegistry(
         workspace_manager,
         admin_runtime=admin_runtime,
         profile_store=profile_store,
         role_bindings=role_bindings,
         audit_writer=audit_writer,
+        watch_service=watch_service,
     )
 
     def _actor_from_request(request: Request) -> str:

@@ -114,20 +114,15 @@ echo "=========================================="
 # ── PyPI Configuration ───────────────────────────────────────────
 # Public variant (PS-97 v1.1 §3.3 / §4): a SINGLE public index, default public
 # PyPI, passed to the build as the PUBLIC_PYPI_INDEX_URL ARG. No internal index
-# host, no --extra-index-url. Dev variant: internal index is supplied by the build
-# ENVIRONMENT (PYPI_URL) — no internal host literal is shipped in published source.
+# host, no --extra-index-url. Dev variant requires an explicit approved index.
 if [[ "${VARIANT}" == "public" ]]; then
   PUBLIC_PYPI_INDEX_URL="${PUBLIC_PYPI_INDEX_URL:-https://pypi.org/simple/}"
   PYPI_URL="${PYPI_URL:-${PUBLIC_PYPI_INDEX_URL}}"
   echo "Public package index: ${PUBLIC_PYPI_INDEX_URL}"
 else
-  # dev/internal variant: the internal package index MUST be provided via the
-  # PYPI_URL environment variable. No internal host is hardcoded here (a source
-  # literal would leak an internal FQDN into the published mirror — PS-99 §3).
   PUBLIC_PYPI_INDEX_URL=""
-  PYPI_URL="${PYPI_URL:-}"
-  if [[ -z "${PYPI_URL}" ]]; then
-    echo "ERROR: --variant dev requires PYPI_URL to be set (internal index); none is shipped in source." >&2
+  if [[ -z "${PYPI_URL:-}" ]]; then
+    echo "ERROR: --variant dev requires an explicit PYPI_URL" >&2
     exit 2
   fi
 fi
@@ -138,13 +133,9 @@ PYPI_TRUSTED_HOST="$(python3 -c "from urllib.parse import urlsplit; print(urlspl
 
 # Generate pip.conf for index credentials (consumed by Dockerfile via secret mount).
 # Public variant uses a single index-url; dev variant keeps the legacy form.
-if [[ -n "${PYPI_USERNAME}" ]] && [[ -n "${PYPI_PASSWORD}" ]]; then
-  cat > "${PIP_CONF}" << EOF
-[global]
-index-url = https://${PYPI_USERNAME}:${PYPI_PASSWORD}@${PYPI_URL#https://}
-trusted-host = ${PYPI_TRUSTED_HOST}
-EOF
-  echo "pip.conf generated with authenticated PyPI access (strict-single-index, PS-97 §3.5)."
+if [[ -n "${PYPI_USERNAME}" ]] || [[ -n "${PYPI_PASSWORD}" ]]; then
+  echo "ERROR: use an external pip auth helper; credentials must not be embedded in index URLs" >&2
+  exit 2
 else
   echo "NOTE: No PYPI credentials set — using anonymous access."
   cat > "${PIP_CONF}" << EOF
@@ -177,7 +168,18 @@ else
   PUBLIC_INDEX_BUILD_ARG=(--build-arg PYPI_URL="${PYPI_URL}")
 fi
 
+# ── W28C-1719 publish-before-pin guard + build-provenance revision label (fail-closed) ──
+_PBP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+"${_PBP_DIR}/scripts/publish-before-pin-guard.sh" "${_PBP_DIR}" || exit $?
+_PBP_REV="$(git -C "${_PBP_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)"
+# W28E-1863 fix-wave-d (WSC-014): propagate build identity to the image so the
+# Dockerfile can stamp OCI labels + runtime ENV for _build_identity() / /ui/version.
+SOURCE_COMMIT="${_PBP_REV}"
+SOURCE_BRANCH="$(git -C "${_PBP_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
 DOCKER_BUILDKIT=1 docker buildx build \
+  --label "org.opencontainers.image.revision=${_PBP_REV}" \
   --progress=plain \
   --network=host \
   --load \
@@ -191,6 +193,9 @@ DOCKER_BUILDKIT=1 docker buildx build \
   --build-arg http_proxy="${http_proxy:-}" \
   --build-arg https_proxy="${https_proxy:-}" \
   --build-arg no_proxy="${no_proxy:-}" \
+  --build-arg SOURCE_COMMIT="${SOURCE_COMMIT}" \
+  --build-arg SOURCE_BRANCH="${SOURCE_BRANCH}" \
+  --build-arg BUILD_DATE="${BUILD_DATE}" \
   -t "${FOLDER}/${CONTAINER}:${EFFECTIVE_TAG}" \
   . 2>&1 | tee docker-build.log
 

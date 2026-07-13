@@ -511,6 +511,90 @@ class AdminApiKeyRevokeInput(BaseModel):
     key_id: str
 
 
+# --- W28E-1870-C git change-watch tool inputs (PS-102 CSTREAM-GIT-001/002) ---
+# The watch adapter validates criteria/tenancy itself; these models keep the MCP
+# input schemas explicit for the tool catalogue while staying permissive on the
+# free-form ``criteria`` mapping.
+
+
+class GitWatchCreateInput(BaseModel):
+    """Input for git_watch_create tool."""
+
+    profile: str
+    tenant_id: str | None = None
+    criteria: dict[str, Any] = Field(default_factory=dict)
+    max_batch: int = 100
+    max_inflight: int = 4
+    journal_max: int = 1000
+    journal_ttl_seconds: float | None = None
+    actor: str | None = None
+
+
+class GitWatchListInput(BaseModel):
+    """Input for git_watch_list tool."""
+
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
+class GitWatchRefInput(BaseModel):
+    """Common single-watch input (status/pause/resume/delete/get)."""
+
+    watch_id: str
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
+class GitWatchGetBatchInput(BaseModel):
+    """Input for git_watch_get_batch tool."""
+
+    watch_id: str
+    profile: str | None = None
+    tenant_id: str | None = None
+    since_cursor: str | None = None
+    max_batch: int | None = None
+
+
+class GitWatchAckInput(BaseModel):
+    """Input for git_watch_ack tool."""
+
+    watch_id: str
+    ack_cursor: str
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
+class GitWatchRecoverInput(BaseModel):
+    """Input for git_watch_recover tool."""
+
+    watch_id: str
+    since_cursor: str | None = None
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
+class GitWatchTestEventInput(BaseModel):
+    """Input for git_watch_test_event tool."""
+
+    model_config = {"extra": "allow"}
+
+    watch_id: str
+    action: str = "created"
+    object_ref: str = "test"
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
+class GitWatchObserveInput(BaseModel):
+    """Input for git_watch_observe tool (server-mediated bounded observation)."""
+
+    watch_id: str
+    fetch: bool = False
+    remote: str = "origin"
+    profile: str | None = None
+    tenant_id: str | None = None
+
+
 class ToolDefinition(BaseModel):
     """Tool contract metadata used by MCP registry."""
 
