@@ -385,6 +385,7 @@ def _build_runtime(env_files: list[str] | None = None) -> tuple[FastAPI, ToolReg
         seed_profiles={
             name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
         },
+        authoritative_seed_names={config.web.default_profile},
     )
     user_store: dict[str, dict[str, Any]] = {}
     group_store: dict[str, dict[str, Any]] = {}

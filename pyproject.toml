@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "git-mcp-server"
 version = "0.1.1RC1"
 description = "API-first MCP server for Git repository workflows and branch-scoped file/directory tooling."
+readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
 authors = [
@@ -13,16 +14,16 @@ authors = [
 ]
 dependencies = [
     # Platform packages
-    "cloud_dog_config==0.3.4",
-    "cloud_dog_logging>=0.4.1",
+    "cloud_dog_config==0.3.5",
+    "cloud_dog_logging==0.4.1",
     # W28E-1870-C: consume the common cross-service change-streaming foundation
     # (PS-102) with the durable SqlJournal extra — no bespoke journal/cursor/queue.
-    "cloud_dog_api_kit[change-stream-db]>=0.14.0",
-    "cloud_dog_idam==0.5.3",
-    "cloud_dog_llm==0.4.0",
-    "cloud_dog_db>=0.3.2",
-    "cloud_dog_jobs>=0.4.2",
-    "cloud_dog_cache>=0.2.1",
+  "cloud_dog_api_kit[change-stream-db]==0.14.1",
+    "cloud_dog_idam==0.5.4",
+    "cloud_dog_llm==0.4.1",
+    "cloud_dog_db==0.3.3",
+    "cloud_dog_jobs==0.4.4",
+    "cloud_dog_cache==0.2.3",
     "cloud_dog_storage==0.1.8",
     # Core runtime
     "pydantic>=2.7,<3.0",

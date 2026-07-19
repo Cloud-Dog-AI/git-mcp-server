@@ -131,6 +131,7 @@ class WorkspaceManager:
         mode: WorkspaceMode = "ephemeral",
         workspace_id: str | None = None,
         owner: str | None = None,
+        default_branch: str | None = None,
     ) -> Workspace:
         """Create and initialise a workspace by cloning the source repository.
 
@@ -191,6 +192,8 @@ class WorkspaceManager:
             clone_env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
         clone_kwargs: dict[str, object] = {"env": clone_env}
+        if default_branch and default_branch.strip():
+            clone_kwargs["branch"] = default_branch.strip()
         if _is_remote_source(repo_source):
             depth = _remote_clone_depth()
             if depth is not None:

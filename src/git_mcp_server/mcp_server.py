@@ -30,25 +30,26 @@ except ImportError:
 
 from uuid import uuid4
 
+from cloud_dog_api_kit.errors import UnauthorisedError
+from cloud_dog_idam import RBACEngine
 from cloud_dog_idam.api_keys.hashing import hash_api_key
 from cloud_dog_idam.domain.models import ApiKey
 
+from git_mcp_server.auth.middleware import (
+    _normalise_enterprise_roles,
+    build_auth_runtime,
+    install_auth_middleware,
+)
+from git_mcp_server.flat_demo_keys import register_flat_demo_keys
+from git_mcp_server.http_client import build_origin, request_json
+from git_mcp_server.logging import configure_service_logging
+from git_mcp_server.web_flat_roles import FLAT_TO_TOOL_ROLE, normalise_flat_role
 from git_tools.admin.profile_store import ProfileStore
 from git_tools.admin.runtime import AdminRuntime
 from git_tools.audit.logger import AuditWriter, tool_audit_jsonl_path
 from git_tools.change_stream.wiring import build_watch_service
 from git_tools.config.loader import bind_global_config, load_raw_config
 from git_tools.db import initialise_database
-from git_mcp_server.auth.middleware import (
-    _normalise_enterprise_roles,
-    build_auth_runtime,
-    install_auth_middleware,
-)
-from cloud_dog_api_kit.errors import UnauthorisedError
-from cloud_dog_idam import RBACEngine
-from git_mcp_server.flat_demo_keys import register_flat_demo_keys
-from git_mcp_server.http_client import build_origin, request_json
-from git_mcp_server.logging import configure_service_logging
 from git_tools.security.rbac import can_execute_tool
 from git_tools.tools.registry import ToolRegistry
 from git_tools.workspaces.manager import WorkspaceManager
@@ -88,6 +89,7 @@ def _enforce_rbac(request: Request) -> None:
     """RBAC enforcement via cloud_dog_idam (PS-70 UM3). Raises 403 on denial."""
     from cloud_dog_idam import RBACEngine
     from fastapi import HTTPException
+
     principal = getattr(getattr(request, "state", None), "user", None)
     if principal is not None:
         engine = RBACEngine(role_permissions=_ROLE_PERMISSIONS)
@@ -130,6 +132,66 @@ def _timeout_seconds_from_config(raw_timeout: float | int | str) -> float:
     return value if value > 0 else 30.0
 
 
+def _mcp_actor_from_request(request: Request, admin_runtime: AdminRuntime) -> str:
+    """Resolve the authenticated MCP caller across API-key and cookie auth."""
+    api_key = request.headers.get("x-api-key", "").strip()
+    if api_key:
+        api_key_item = admin_runtime.api_key_manager.validate(api_key)
+        if api_key_item is not None:
+            return str(api_key_item.owner_user_id).strip()
+
+    enterprise_user_id = str(getattr(request.state, "enterprise_user_id", "")).strip()
+    if enterprise_user_id:
+        return enterprise_user_id
+
+    web_user = getattr(request.state, "web_session_user", None)
+    if isinstance(web_user, dict):
+        display_name = str(web_user.get("displayName") or web_user.get("id") or "").strip()
+        if display_name:
+            return display_name
+
+    return request.headers.get("x-user-id", "").strip()
+
+
+def _mcp_roles_from_request(request: Request, actor_id: str, admin_runtime: AdminRuntime) -> set[str]:
+    """Resolve MCP tool roles, including the validated WebUI cookie principal."""
+    enterprise_roles = getattr(request.state, "enterprise_roles", None)
+    if isinstance(enterprise_roles, list) and enterprise_roles:
+        return _normalise_enterprise_roles([str(item) for item in enterprise_roles])
+
+    remote_roles = getattr(request.state, "mcp_remote_roles", None)
+    if isinstance(remote_roles, list) and remote_roles:
+        return {str(item).strip() for item in remote_roles if str(item).strip()}
+
+    header_roles = {
+        str(item).strip()
+        for name in ("x-user-roles", "x-role")
+        for item in request.headers.get(name, "").split(",")
+        if str(item).strip()
+    }
+    if header_roles:
+        return header_roles
+
+    # The auth middleware has already validated this cookie session against the
+    # web tier. Translate its flat WebUI role onto the same tool-RBAC vocabulary
+    # used by the API tier; otherwise a valid admin session reaches MCP with no
+    # roles and every tool call is incorrectly denied.
+    web_user = getattr(request.state, "web_session_user", None)
+    if isinstance(web_user, dict):
+        raw_roles = web_user.get("roles")
+        if isinstance(raw_roles, list):
+            mapped: set[str] = set()
+            for item in raw_roles:
+                if str(item).strip():
+                    mapped.update(FLAT_TO_TOOL_ROLE.get(normalise_flat_role(item), ()))
+            if mapped:
+                return mapped
+
+    if actor_id:
+        return set(admin_runtime.resolve_roles(actor_id))
+    return set()
+
+
 def _configure_timeout_middleware(app: FastAPI, timeout_seconds: float) -> None:
     for middleware in app.user_middleware:
         if middleware.cls is TimeoutMiddleware:
@@ -146,7 +208,9 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     """Create an MCP HTTP transport app with tool router."""
     raw_snapshot = load_raw_config(env_files=env_files)
     config = bind_global_config(raw_snapshot)
-    configure_service_logging(raw_snapshot, service_name="git-mcp-server-mcp", server_id=config.runtime.server_id, surface="mcp")
+    configure_service_logging(
+        raw_snapshot, service_name="git-mcp-server-mcp", server_id=config.runtime.server_id, surface="mcp"
+    )
 
     workspace_manager = WorkspaceManager(config.workspace.base_dir)
     # GM2 (W28C-1705 / 1603-unblocker): share the durable git_profile_registry store with the
@@ -155,9 +219,8 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     db_runtime = initialise_database(config=raw_snapshot, env_files=env_files)
     profile_store = ProfileStore(
         db_runtime.session_manager,
-        seed_profiles={
-            name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
-        },
+        seed_profiles={name: profile.model_dump(mode="json") for name, profile in config.profiles.items()},
+        authoritative_seed_names={config.web.default_profile},
     )
     # GM1 (W28C-1705): the MCP transport previously installed NO auth middleware, so an
     # anonymous caller could tools/list AND tools/call every tool — including admin_* and
@@ -192,7 +255,11 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
         role_bindings=role_bindings,
     )
     # GM3 (W28C-1705): per-tool-call typed audit on the MCP surface (reuse the app's audit sink).
-    audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)
+    audit_writer = AuditWriter(
+        tool_audit_jsonl_path(config.workspace.base_dir),
+        service_instance=config.runtime.server_id,
+        configure_logging=False,
+    )
     # W28E-1870-C: git change-watch adapter on the MCP tier — same durable engine +
     # workspace resolver, so the git_watch_* tools appear on MCP tools/list + call.
     watch_service = build_watch_service(
@@ -210,34 +277,10 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
     )
 
     def _actor_from_request(request: Request) -> str:
-        api_key = request.headers.get("x-api-key", "").strip()
-        if api_key:
-            api_key_item = admin_runtime.api_key_manager.validate(api_key)
-            if api_key_item is not None:
-                return str(api_key_item.owner_user_id).strip()
-        enterprise_user_id = str(getattr(request.state, "enterprise_user_id", "")).strip()
-        if enterprise_user_id:
-            return enterprise_user_id
-        return request.headers.get("x-user-id", "").strip()
+        return _mcp_actor_from_request(request, admin_runtime)
 
     def _roles_from_request(request: Request, actor_id: str) -> set[str]:
-        enterprise_roles = getattr(request.state, "enterprise_roles", None)
-        if isinstance(enterprise_roles, list) and enterprise_roles:
-            return _normalise_enterprise_roles([str(item) for item in enterprise_roles])
-        remote_roles = getattr(request.state, "mcp_remote_roles", None)
-        if isinstance(remote_roles, list) and remote_roles:
-            return {str(item).strip() for item in remote_roles if str(item).strip()}
-        header_roles = {
-            str(item).strip()
-            for name in ("x-user-roles", "x-role")
-            for item in request.headers.get(name, "").split(",")
-            if str(item).strip()
-        }
-        if header_roles:
-            return header_roles
-        if actor_id:
-            return set(admin_runtime.resolve_roles(actor_id))
-        return set()
+        return _mcp_roles_from_request(request, actor_id, admin_runtime)
 
     def _capabilities_from_request(request: Request) -> set[str]:
         remote_capabilities = getattr(request.state, "mcp_remote_capabilities", None)
@@ -305,9 +348,7 @@ def create_mcp_app(env_files: list[str] | None = None) -> FastAPI:
         return {
             "actor": str(result.get("actor") or "").strip(),
             "roles": [str(item).strip() for item in result.get("roles", []) if str(item).strip()],
-            "capabilities": [
-                str(item).strip() for item in result.get("capabilities", []) if str(item).strip()
-            ],
+            "capabilities": [str(item).strip() for item in result.get("capabilities", []) if str(item).strip()],
         }
 
     @app.middleware("http")

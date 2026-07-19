@@ -126,6 +126,7 @@ def build_workspace_enum_router(
                 session_id=actor,
                 mode=mode,  # type: ignore[arg-type]
                 owner=actor,
+                default_branch=str(repo_cfg.get("default_branch") or "").strip() or None,
             )
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail=f"Failed to create workspace: {exc}") from exc

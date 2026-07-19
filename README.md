@@ -1,3 +1,9 @@
+---
+template-id: T-RME
+template-version: 1.0
+applies-to: README.md
+---
+
 # Git MCP Server
 
 `git-mcp-server` exposes Git repository tooling over REST, Web UI, MCP, and A2A-compatible endpoints.
