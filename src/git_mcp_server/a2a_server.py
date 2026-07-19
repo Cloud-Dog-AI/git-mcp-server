@@ -234,6 +234,7 @@ def create_a2a_app(env_files: list[str] | None = None) -> FastAPI:
         seed_profiles={
             name: profile.model_dump(mode="json") for name, profile in config.profiles.items()
         },
+        authoritative_seed_names={config.web.default_profile},
     )
     # GM3 (W28C-1705): per-tool-call typed audit on the A2A surface (reuse the app's audit sink).
     audit_writer = AuditWriter(tool_audit_jsonl_path(config.workspace.base_dir), service_instance=config.runtime.server_id, configure_logging=False)

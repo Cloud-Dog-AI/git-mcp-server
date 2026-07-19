@@ -51,15 +51,23 @@ class ProfileStore(MutableMapping):
         self,
         session_manager: Any,
         seed_profiles: dict[str, dict[str, Any]] | None = None,
+        authoritative_seed_names: set[str] | None = None,
     ) -> None:
         self._session_manager = session_manager
         if seed_profiles:
-            self._backfill(seed_profiles)
+            self._backfill(seed_profiles, authoritative_seed_names or set())
 
-    def _backfill(self, seed_profiles: dict[str, dict[str, Any]]) -> None:
+    def _backfill(
+        self,
+        seed_profiles: dict[str, dict[str, Any]],
+        authoritative_seed_names: set[str],
+    ) -> None:
         """Insert any seed profile missing from the table (one-time, idempotent).
 
-        After backfill the DB is authoritative; a seed never overwrites a stored row.
+        The DB remains authoritative for ordinary profiles. Environment-managed seed
+        names (the configured WebUI default profile) are reconciled on startup so a
+        legitimate deployment config change cannot leave the browser and tool
+        registry resolving different repository sources.
         """
         with self._session_manager.session() as session:
             for name, body in seed_profiles.items():
@@ -76,6 +84,10 @@ class ProfileStore(MutableMapping):
                             is_active=True,
                         )
                     )
+                elif name in authoritative_seed_names:
+                    existing.config_json = json.dumps(body)
+                    existing.display_name = _display_name(name, body)
+                    existing.is_active = True
             session.commit()
 
     def __getitem__(self, name: str) -> dict[str, Any]:

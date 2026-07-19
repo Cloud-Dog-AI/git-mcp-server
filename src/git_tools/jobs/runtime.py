@@ -109,6 +109,7 @@ class JobsRuntime:
             self._backend,
             host_id=server_id,
             worker_id="git-mcp-jobs",
+            queue_name=queue_name,
             run_timeout_seconds=run_timeout_seconds,
             fallback_policies=self._fallback,
         )

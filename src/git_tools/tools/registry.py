@@ -758,6 +758,16 @@ class ToolRegistry:
             raise KeyError(f"Profile {profile!r} has no repo.source")
         return cast(str, source)
 
+    def _profile_default_branch(self, profile: str) -> str | None:
+        profile_obj = self.profile_store.get(profile)
+        if not isinstance(profile_obj, dict):
+            return None
+        repo = profile_obj.get("repo")
+        if not isinstance(repo, dict):
+            return None
+        value = str(repo.get("default_branch") or "").strip()
+        return value or None
+
     def _profile_policy_value(self, profile: str, *keys: str) -> Any:
         """Return a policy value with support for legacy top-level aliases."""
         profile_obj = self.profile_store.get(profile, {})
@@ -874,6 +884,7 @@ class ToolRegistry:
             session_id=args.session_id,
             mode=args.workspace_mode,
             workspace_id=args.workspace_id,
+            default_branch=self._profile_default_branch(args.profile),
         )
 
         try:

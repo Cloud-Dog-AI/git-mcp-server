@@ -14,28 +14,27 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import resource
 import socket
 import subprocess
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from os import getenv as read_env_var
-from typing import Any, Callable
+from typing import Any
 
 from cloud_dog_storage import path_utils
 from fastapi import APIRouter, HTTPException, Request
 
-from git_mcp_server import __version__
-from git_mcp_server import config_sources
+from git_mcp_server import __version__, config_sources
 from git_mcp_server.admin.endpoints import _require_admin
 from git_mcp_server.auth.middleware import AuthRuntime
 from git_tools.admin.runtime import AdminRuntime
 from git_tools.config.models import GlobalConfigModel
-from git_tools.files.io import load_host_text
-
+from git_tools.files.io import load_host_bytes, load_host_text
 
 _ROLE_PERMISSIONS = {
     "admin": {"*"},
@@ -361,16 +360,55 @@ def _emit_settings_reveal_audit(request: Request, auth_runtime: AuthRuntime | No
         )
 
 
+def _rotated_log_paths(path: str) -> list[str]:
+    """Return the active log and its numbered rotations, newest first."""
+    parent = path_utils.parent(path)
+    basename = path_utils.name(path)
+    candidates: set[str] = {path} if path_utils.exists(path) else set()
+    try:
+        children = path_utils.iter_dir(parent)
+    except OSError:
+        children = []
+    for candidate in children:
+        candidate_name = path_utils.name(candidate)
+        if not candidate_name.startswith(f"{basename}."):
+            continue
+        suffix = candidate_name[len(basename) + 1 :]
+        rotation = suffix.removesuffix(".gz")
+        if rotation.isdigit() and (suffix == rotation or suffix == f"{rotation}.gz"):
+            candidates.add(candidate)
+
+    def modified_at(candidate: str) -> float:
+        try:
+            return path_utils.file_stat(candidate).st_mtime
+        except OSError:
+            return 0.0
+
+    return sorted(candidates, key=modified_at, reverse=True)
+
+
 def _read_normalised_log_rows(path: str, *, log_type: str, limit: int, contains: str = "") -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     lowered = contains.strip().lower()
-    for line in reversed(load_host_text(path).splitlines()) if path_utils.exists(path) else []:
-        if lowered and lowered not in line.lower():
+    for candidate in _rotated_log_paths(path):
+        try:
+            content = (
+                gzip.decompress(load_host_bytes(candidate)).decode("utf-8", errors="replace")
+                if candidate.endswith(".gz")
+                else load_host_text(candidate, errors="replace")
+            )
+        except OSError:
+            # Rotation may rename or remove a candidate between listing and read.
             continue
-        parsed = _normalise_log_entry(log_type, line)
-        if parsed is None:
-            continue
-        rows.append(parsed)
+        for line in reversed(content.splitlines()):
+            if lowered and lowered not in line.lower():
+                continue
+            parsed = _normalise_log_entry(log_type, line)
+            if parsed is None:
+                continue
+            rows.append(parsed)
+            if len(rows) >= limit:
+                break
         if len(rows) >= limit:
             break
     rows.reverse()
