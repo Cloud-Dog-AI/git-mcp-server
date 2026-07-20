@@ -113,18 +113,18 @@ def create_web_app(env_files: list[str] | None = None) -> FastAPI:
     # flat roles admin / read-write / read-only. The admin account keeps its
     # historical credentials (back-compat with existing demo scripts/tests);
     # read-write and read-only are seeded so all three flat roles are demoable.
-    # Credentials are config-overridable (defaults.yaml web_login.* / CLOUD_DOG__WEB_LOGIN__* env);
-    # read-write/read-only carry the estate-canonical in-code demo defaults
-    # (BlueRiverChair / GreenRiverDesk) — mirroring chat-client (W28A-727-R5) and
-    # notification-agent (W28A-730-R5) web_server.py — so all three flat roles log
-    # in out-of-the-box without a deployment-config write. roles/permissions come from
-    # the ONE shared idam guard (web_flat_roles).
+    # Credentials are config-overridable (defaults.yaml web_login.* / CLOUD_DOG__WEB_LOGIN__* env).
+    # The admin password is operator-supplied via config/env (web_login.password /
+    # CLOUD_DOG_WEB_LOGIN_PASSWORD). read-write/read-only use their own config key when set;
+    # otherwise they fall back to the RESOLVED ADMIN password — so all three flat roles log
+    # in out-of-the-box without a deployment-config write and WITHOUT shipping any credential
+    # literal in source. roles/permissions come from the ONE shared idam guard (web_flat_roles).
     _admin_username = config.web_login.username.strip() or "admin"
     _admin_password = config.web_login.password
     _rw_username = config.web_login.read_write_username.strip() or "read-write"
-    _rw_password = (config.web_login.read_write_password or "BlueRiverChair").strip() or "BlueRiverChair"
+    _rw_password = config.web_login.read_write_password.strip() or _admin_password
     _ro_username = config.web_login.read_only_username.strip() or "read-only"
-    _ro_password = (config.web_login.read_only_password or "GreenRiverDesk").strip() or "GreenRiverDesk"
+    _ro_password = config.web_login.read_only_password.strip() or _admin_password
 
     # username -> (password, flat-role). Built once; the comparison in
     # /auth/login is constant-time per candidate to avoid username enumeration.

@@ -51,9 +51,8 @@ web:
 web_login:
   # Thread-a flat WebUI login: three flat roles admin / read-write / read-only.
   # admin password is operator-supplied via env (CLOUD_DOG_WEB_LOGIN_PASSWORD), set in
-  # read-write / read-only default to EMPTY here so web_server.py seeds the
-  # estate-canonical in-code demo defaults (BlueRiverChair / GreenRiverDesk) — matching
-  # accepted chat-client (W28A-727-R5) + notification-agent (W28A-730-R5). They are still
+  # read-write / read-only default to EMPTY here so web_server.py falls back to the
+  # RESOLVED ADMIN password (no credential literal is shipped in source). They are still
   # overridable via the standard CLOUD_DOG__WEB_LOGIN__READ_WRITE_PASSWORD / __READ_ONLY_PASSWORD
   # env overlay. (W28A-731-R5: the prior `${VAR:''}` default resolved to a literal `''`, which
   # is non-empty and therefore defeated the in-code fallback, so read-write/read-only could not log in.)
