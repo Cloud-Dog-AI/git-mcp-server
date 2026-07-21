@@ -188,8 +188,15 @@ else
 fi
 
 # ── W28C-1719 publish-before-pin guard + build-provenance revision label (fail-closed) ──
+# The publish-before-pin guard resolves internal (cloud-dog-*) shared-package pins
+# against the single internal package index. It is internal build-guard tooling only
+# and is NOT part of the public build/run path, so it is absent from the public
+# source mirror. Run it fail-closed only when present (internal checkouts); the public
+# variant builds from the single public index and has nothing to guard.
 _PBP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-NETRC="${PIP_NETRC}" "${_PBP_DIR}/scripts/publish-before-pin-guard.sh" "${_PBP_DIR}" || exit $?
+if [[ -x "${_PBP_DIR}/scripts/publish-before-pin-guard.sh" ]]; then
+  NETRC="${PIP_NETRC}" "${_PBP_DIR}/scripts/publish-before-pin-guard.sh" "${_PBP_DIR}" || exit $?
+fi
 _PBP_REV="$(git -C "${_PBP_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)"
 # W28E-1863 fix-wave-d (WSC-014): propagate build identity to the image so the
 # Dockerfile can stamp OCI labels + runtime ENV for _build_identity() / /ui/version.

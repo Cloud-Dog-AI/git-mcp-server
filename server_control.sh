@@ -53,7 +53,13 @@ fi
 
 PYTHON_BIN="${SCRIPT_DIR}/.venv/bin/python"
 if [[ ! -x "${PYTHON_BIN}" ]]; then
-  PYTHON_BIN="python3"
+  PYTHON_BIN="$(command -v python3.13 || command -v python3)"
+fi
+# NF-006 runtime contract: never start on an ambient non-3.13 interpreter — that
+# caused IT health-port startup failures when no 3.13 .venv was present.
+if ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 13) else 1)' 2>/dev/null; then
+  echo "ERROR: server_control requires Python 3.13 (got: $("${PYTHON_BIN}" --version 2>&1)). Create one with: python3.13 -m venv .venv" >&2
+  exit 1
 fi
 
 ENV_FILE=""

@@ -88,7 +88,7 @@ class ConfigEventSubscription:
             try:
                 # Small bounded poll cadence keeps cross-process journal events responsive.
                 await asyncio.wait_for(self._signal.wait(), timeout=float(self._max_events) / 64.0)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 continue
 
     def get_nowait(self) -> dict[str, Any]:
