@@ -89,3 +89,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["all"]
+
+# W28A-SEC-R18 hardening v3: force-remove non-runtime CVE-bearing packages
+USER root
+RUN set +e; dpkg --purge --force-depends --force-remove-essential curl openssh-client openssh-sftp-server net-tools procps gzip ; rm -rf /var/lib/apt/lists/* /var/cache/apt/*; true
